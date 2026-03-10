@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>陇南市实景三维自然资源一体化平台</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.95.0/Cesium.js"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.95.0/Widgets/widgets.css" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --bg:#050d1a; --panel:rgba(5,16,38,0.92); --border:rgba(0,180,255,0.22);
+  --accent:#00b4ff; --a2:#00ffc8; --text:#c0daf0; --dim:rgba(140,185,215,0.55);
+  --green:#00e07a; --red:#ff4d6a;
+}
+body { width:100vw; height:100vh; overflow:hidden; background:var(--bg);
+       font-family:"Microsoft YaHei","Noto Sans SC",sans-serif; }
+#cesiumContainer { width:100%; height:100%; }
+
+/* Cesium 默认UI隐藏 */
+.cesium-widget-credits,.cesium-viewer-toolbar,.cesium-viewer-animationContainer,
+.cesium-viewer-timelineContainer,.cesium-viewer-bottom,
+.cesium-viewer-fullscreenContainer,.cesium-viewer-navigationHelpButtonContainer
+{ display:none !important; }
+
+/* 扫描线 */
+#scanline { position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,
+    rgba(0,180,255,0.012) 3px,rgba(0,180,255,0.012) 4px); }
+
+/* 顶部 */
+#topbar {
+  position:absolute; top:0; left:0; right:0; height:52px; z-index:100;
+  background:linear-gradient(90deg,rgba(2,10,26,.97),rgba(4,18,46,.93) 50%,rgba(2,10,26,.97));
+  border-bottom:1px solid var(--border); backdrop-filter:blur(14px);
+  display:flex; align-items:center; justify-content:space-between; padding:0 18px;
+}
+.logo { display:flex; align-items:center; gap:11px; }
+.logo-box { width:32px; height:32px; border-radius:7px;
+  background:linear-gradient(135deg,#0055cc,#00b4ff);
+  display:flex; align-items:center; justify-content:center; font-size:16px; }
+.t1 { font-size:14px; font-weight:700; color:#fff; letter-spacing:.04em; }
+.t2 { font-size:10px; color:var(--dim); letter-spacing:.1em; margin-top:1px; }
+.nav-btn {
+  padding:5px 13px; border:none; background:transparent; color:var(--dim);
+  font-size:12px; cursor:pointer; border-radius:4px; transition:all .18s;
+  font-family:inherit; letter-spacing:.04em;
+}
+.nav-btn:hover,.nav-btn.active { background:rgba(0,180,255,.14); color:var(--accent); }
+.status-dot { width:7px; height:7px; border-radius:50%; background:var(--green);
+  box-shadow:0 0 6px var(--green); animation:blink 2s infinite; }
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* 面板通用 */
+.card { background:var(--panel); border:1px solid var(--border);
+  border-radius:8px; backdrop-filter:blur(18px); overflow:hidden; margin-bottom:9px; }
+.card-h { padding:9px 13px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:7px; }
+.card-h-title { font-size:11px; font-weight:700; color:var(--accent); letter-spacing:.1em; }
+.card-b { padding:10px 13px; }
+
+/* 左面板 */
+#lp { position:absolute; top:68px; left:14px; width:230px; z-index:100; }
+.stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+.stat-item { background:rgba(0,180,255,.05); border:1px solid rgba(0,180,255,.1);
+  border-radius:6px; padding:8px 10px; }
+.stat-v { font-size:18px; font-weight:700; color:var(--a2); line-height:1; }
+.stat-l { font-size:10px; color:var(--dim); margin-top:3px; }
+
+/* 图层开关 */
+.layer-row { display:flex; align-items:center; justify-content:space-between;
+  padding:5px 0; border-bottom:1px solid rgba(0,180,255,.07); }
+.layer-row:last-child { border:none; }
+.layer-name { font-size:12px; color:var(--text); display:flex; align-items:center; gap:6px; }
+.layer-dot { width:7px; height:7px; border-radius:2px; display:inline-block; }
+.toggle { width:30px; height:16px; border-radius:8px; cursor:pointer; position:relative;
+  transition:background .2s; border:1px solid var(--border); background:rgba(0,180,255,.14); }
+.toggle.on { background:rgba(0,180,255,.5); border-color:var(--accent); }
+.toggle::after { content:''; position:absolute; width:10px; height:10px;
+  background:#fff; border-radius:50%; top:2px; left:2px; transition:left .2s; }
+.toggle.on::after { left:16px; }
+
+/* 右面板 */
+#rp { position:absolute; top:68px; right:14px; width:210px; z-index:100; }
+.county-row { display:flex; align-items:center; justify-content:space-between;
+  padding:5px 4px; cursor:pointer; border-radius:4px; transition:all .15s;
+  border-bottom:1px solid rgba(0,180,255,.07); }
+.county-row:last-child { border:none; }
+.county-row:hover { background:rgba(0,180,255,.09); padding-left:8px; }
+.county-bar { width:3px; height:18px; border-radius:2px; flex-shrink:0; }
+.county-name { font-size:12px; color:var(--text); flex:1; padding-left:8px; }
+.county-area { font-size:10px; color:var(--dim); }
+
+/* 弹窗 */
+#popup { position:absolute; left:260px; top:75px; z-index:200; display:none;
+  background:var(--panel); border:1px solid var(--border); border-radius:10px;
+  padding:13px 16px; min-width:190px; backdrop-filter:blur(22px);
+  box-shadow:0 8px 32px rgba(0,0,0,.55); }
+.popup-title { font-size:13px; font-weight:700; color:#fff; margin-bottom:9px;
+  border-bottom:1px solid var(--border); padding-bottom:7px;
+  display:flex; justify-content:space-between; }
+.popup-close { cursor:pointer; color:var(--dim); font-size:15px; }
+.popup-close:hover { color:var(--red); }
+.popup-row { display:flex; justify-content:space-between; padding:3px 0; }
+.popup-key { font-size:11px; color:var(--dim); }
+.popup-val { font-size:11px; color:var(--a2); font-weight:500; }
+
+/* 坐标栏 */
+#coords { position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+  z-index:100; font-size:11px; color:var(--dim); letter-spacing:.07em; }
+
+/* 操作提示 */
+#tips { position:absolute; bottom:28px; right:14px; z-index:100;
+  background:var(--panel); border:1px solid var(--border); border-radius:8px;
+  padding:8px 12px; backdrop-filter:blur(14px); }
+.tip-row { display:flex; gap:8px; padding:2px 0; }
+.tip-k { font-size:10px; color:var(--accent); }
+.tip-v { font-size:10px; color:var(--dim); }
+</style>
+</head>
+<body>
+
+<div id="cesiumContainer"></div>
+<div id="scanline"></div>
+
+<!-- 顶部 -->
+<div id="topbar">
+  <div class="logo">
+    <div class="logo-box">🗺</div>
+    <div>
+      <div class="t1">陇南市实景三维自然资源一体化平台</div>
+      <div class="t2">LONGNAN NATURAL RESOURCES 3D PLATFORM · DEMO</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:2px;">
+    <button class="nav-btn" onclick="flyHome()">🏠 全市总览</button>
+    <button class="nav-btn" onclick="toggle2D3D(this)">⬜ 二维切换</button>
+    <button class="nav-btn" id="btn-sun" onclick="toggleSun(this)">☀ 日照分析</button>
+    <button class="nav-btn" id="btn-flood" onclick="toggleFlood(this)">🌊 水淹模拟</button>
+    <button class="nav-btn" id="btn-measure" onclick="toggleMeasure(this)">📏 距离量测</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div class="status-dot"></div>
+    <span id="clk" style="font-size:12px;color:var(--dim);">--:--:--</span>
+  </div>
+</div>
+
+<!-- 左面板 -->
+<div id="lp">
+  <div class="card">
+    <div class="card-h"><span>📊</span><span class="card-h-title">数据概览</span></div>
+    <div class="card-b">
+      <div class="stat-grid">
+        <div class="stat-item"><div class="stat-v">2.79万</div><div class="stat-l">km² 总面积</div></div>
+        <div class="stat-item"><div class="stat-v">9</div><div class="stat-l">县区行政单元</div></div>
+        <div class="stat-item"><div class="stat-v">281万</div><div class="stat-l">常住人口</div></div>
+        <div class="stat-item"><div class="stat-v">47.2%</div><div class="stat-l">林地覆盖率</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-h"><span>🗂</span><span class="card-h-title">图层控制</span></div>
+    <div class="card-b">
+      <div class="layer-row">
+        <span class="layer-name"><span class="layer-dot" style="background:#00b4ff"></span>行政区划边界</span>
+        <div class="toggle on" id="tog-boundary" onclick="toggleLayer('boundary',this)"></div>
+      </div>
+      <div class="layer-row">
+        <span class="layer-name"><span class="layer-dot" style="background:#ffd166"></span>县区名称标注</span>
+        <div class="toggle on" id="tog-labels" onclick="toggleLayer('labels',this)"></div>
+      </div>
+      <div class="layer-row">
+        <span class="layer-name"><span class="layer-dot" style="background:#00e07a"></span>卫星影像底图</span>
+        <div class="toggle on" id="tog-satellite" onclick="toggleLayer('satellite',this)"></div>
+      </div>
+      <div class="layer-row">
+        <span class="layer-name"><span class="layer-dot" style="background:#c77dff"></span>三维地形高程</span>
+        <div class="toggle on" id="tog-terrain" onclick="toggleLayer('terrain',this)"></div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-h"><span>📡</span><span class="card-h-title">系统状态</span></div>
+    <div class="card-b">
+      <div class="layer-row"><span class="layer-name" style="font-size:11px">天地图卫星服务</span><span style="font-size:11px;color:var(--green)">● 在线</span></div>
+      <div class="layer-row"><span class="layer-name" style="font-size:11px">地形高程服务</span><span style="font-size:11px;color:var(--green)">● 在线</span></div>
+      <div class="layer-row"><span class="layer-name" style="font-size:11px">矢量边界数据</span><span style="font-size:11px;color:var(--green)">● 已加载</span></div>
+      <div class="layer-row" style="border:none"><span class="layer-name" style="font-size:11px">三维渲染引擎</span><span style="font-size:11px;color:var(--accent)">Cesium</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 右面板 -->
+<div id="rp">
+  <div class="card">
+    <div class="card-h"><span>📍</span><span class="card-h-title">县区列表 · 点击定位</span></div>
+    <div class="card-b" id="county-list"></div>
+  </div>
+</div>
+
+<!-- 弹窗 -->
+<div id="popup">
+  <div class="popup-title">
+    <span id="popup-name">县区信息</span>
+    <span class="popup-close" onclick="closePopup()">✕</span>
+  </div>
+  <div id="popup-body"></div>
+</div>
+
+<!-- 坐标 -->
+<div id="coords">经度: -- | 纬度: -- | 高程: --m</div>
+
+<!-- 操作提示 -->
+<div id="tips">
+  <div class="tip-row"><span class="tip-k">左键拖拽</span><span class="tip-v">旋转视角</span></div>
+  <div class="tip-row"><span class="tip-k">右键拖拽</span><span class="tip-v">平移地图</span></div>
+  <div class="tip-row"><span class="tip-k">滚轮</span><span class="tip-v">缩放高度</span></div>
+  <div class="tip-row"><span class="tip-k">点击县名</span><span class="tip-v">飞行定位</span></div>
+</div>
+
+<script>
+// ── 配置 ──────────────────────────────────────────────
+const TDT_KEY = '216175d2f188a79b163c0a55e2d073dc';
+
+const COUNTIES = [
+  { name:'武都区', lon:104.9236, lat:33.3922, area:'4683km²', pop:'55万', type:'市辖区', color:'#00b4ff',
+    poly:[[104.48,33.17],[104.72,33.02],[104.85,33.05],[105.05,33.12],[105.18,33.15],[105.35,33.28],[105.38,33.38],[105.35,33.50],[105.18,33.63],[104.95,33.62],[104.75,33.55],[104.65,33.52],[104.55,33.48],[104.48,33.30],[104.48,33.17]]},
+  { name:'文县',   lon:104.6827, lat:32.9438, area:'4994km²', pop:'24万', type:'县', color:'#00ffc8',
+    poly:[[104.35,32.68],[104.58,32.58],[104.72,32.58],[104.85,32.62],[105.02,32.78],[105.05,32.90],[104.95,33.10],[104.72,33.18],[104.48,33.08],[104.40,32.98],[104.35,32.88],[104.35,32.68]]},
+  { name:'宕昌县', lon:104.3924, lat:34.0477, area:'3331km²', pop:'29万', type:'县', color:'#ffd166',
+    poly:[[103.98,33.72],[104.18,33.60],[104.30,33.58],[104.42,33.62],[104.55,33.78],[104.55,33.90],[104.42,34.08],[104.30,34.12],[104.08,34.05],[104.00,33.95],[103.98,33.85],[103.98,33.72]]},
+  { name:'成县',   lon:105.7228, lat:33.7383, area:'1676km²', pop:'25万', type:'县', color:'#ff6b9d',
+    poly:[[105.50,33.55],[105.72,33.48],[105.85,33.52],[105.93,33.60],[105.95,33.72],[105.85,33.90],[105.75,33.95],[105.62,33.95],[105.52,33.90],[105.42,33.72],[105.50,33.55]]},
+  { name:'康县',   lon:105.6086, lat:33.3295, area:'2958km²', pop:'22万', type:'县', color:'#c77dff',
+    poly:[[105.35,33.10],[105.58,33.02],[105.70,33.05],[105.80,33.12],[105.85,33.22],[105.85,33.35],[105.70,33.52],[105.58,33.55],[105.45,33.52],[105.28,33.35],[105.28,33.22],[105.35,33.10]]},
+  { name:'西和县', lon:105.3001, lat:34.0140, area:'1861km²', pop:'36万', type:'县', color:'#06d6a0',
+    poly:[[104.98,33.82],[105.08,33.78],[105.20,33.75],[105.32,33.78],[105.40,33.85],[105.42,33.95],[105.40,34.05],[105.32,34.12],[105.08,34.12],[104.98,34.05],[104.92,33.95],[104.98,33.82]]},
+  { name:'礼县',   lon:105.1794, lat:34.1891, area:'4299km²', pop:'55万', type:'县', color:'#ffa94d',
+    poly:[[104.82,33.82],[104.92,33.78],[105.02,33.75],[105.25,33.85],[105.30,33.98],[105.30,34.10],[105.15,34.28],[105.02,34.30],[104.90,34.28],[104.75,34.08],[104.75,33.95],[104.82,33.82]]},
+  { name:'徽县',   lon:106.0880, lat:33.7696, area:'2722km²', pop:'24万', type:'县', color:'#4ecdc4',
+    poly:[[105.88,33.72],[106.08,33.65],[106.20,33.68],[106.28,33.75],[106.30,33.85],[106.22,34.02],[106.10,34.05],[105.98,34.02],[105.90,33.95],[105.85,33.85],[105.88,33.72]]},
+  { name:'两当县', lon:106.3051, lat:33.9090, area:'1408km²', pop:'5万',  type:'县', color:'#ff9f1c',
+    poly:[[106.12,33.82],[106.32,33.75],[106.42,33.78],[106.50,33.85],[106.48,34.05],[106.28,34.15],[106.18,34.12],[106.10,34.05],[106.08,33.88],[106.12,33.82]]},
+];
+
+// ── Cesium 初始化（禁用 Ion，避免 token 报错）──────────
+Cesium.Ion.defaultAccessToken = undefined;
+
+// 天地图影像
+const imgProvider = new Cesium.WebMapTileServiceImageryProvider({
+  url: 'https://t{s}.tianditu.gov.cn/img_w/wmts?tk=' + TDT_KEY,
+  layer: 'img', style: 'default', format: 'tiles',
+  tileMatrixSetID: 'w',
+  subdomains: ['0','1','2','3','4','5','6','7'],
+  maximumLevel: 18,
+  credit: new Cesium.Credit('天地图'),
+});
+
+// 天地图汉字注记
+const ciaProvider = new Cesium.WebMapTileServiceImageryProvider({
+  url: 'https://t{s}.tianditu.gov.cn/cia_w/wmts?tk=' + TDT_KEY,
+  layer: 'cia', style: 'default', format: 'tiles',
+  tileMatrixSetID: 'w',
+  subdomains: ['0','1','2','3','4','5','6','7'],
+  maximumLevel: 18,
+  credit: new Cesium.Credit('天地图注记'),
+});
+
+// 使用 ArcGIS 地形（公开免费，无需 token）
+const terrainProvider = new Cesium.ArcGISTiledElevationTerrainProvider({
+  url: 'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer',
+});
+
+const viewer = new Cesium.Viewer('cesiumContainer', {
+  imageryProvider: imgProvider,
+  terrainProvider: terrainProvider,
+  animation: false,
+  baseLayerPicker: false,
+  fullscreenButton: false,
+  geocoder: false,
+  homeButton: false,
+  infoBox: false,
+  sceneModePicker: false,
+  selectionIndicator: false,
+  timeline: false,
+  navigationHelpButton: false,
+  navigationInstructionsInitiallyVisible: false,
+  creditContainer: document.createElement('div'),
+  shadows: false,
+});
+
+// 加天地图注记层
+const annoLayer = viewer.imageryLayers.addImageryProvider(ciaProvider);
+
+// 开启深度检测（让边界线贴地）
+viewer.scene.globe.depthTestAgainstTerrain = true;
+
+// 大气
+viewer.scene.skyAtmosphere.show = true;
+viewer.scene.fog.enabled = true;
+viewer.scene.fog.density = 0.00015;
+
+// ── 图层引用 ──────────────────────────────────────────
+const satLayer = viewer.imageryLayers.get(0);
+const layerMap = { satellite: satLayer, annotation: annoLayer };
+const boundaryEntities = [];
+const labelEntities = [];
+
+// ── 绘制边界 ──────────────────────────────────────────
+COUNTIES.forEach(county => {
+  // 边界线（贴地）
+  const positions = county.poly.map(c => Cesium.Cartesian3.fromDegrees(c[0], c[1]));
+  const line = viewer.entities.add({
+    polyline: {
+      positions,
+      width: 2.5,
+      material: new Cesium.PolylineGlowMaterialProperty({
+        glowPower: 0.25,
+        color: Cesium.Color.fromCssColorString(county.color).withAlpha(0.95),
+      }),
+      clampToGround: true,
+    }
+  });
+
+  // 填充面
+  const fill = viewer.entities.add({
+    polygon: {
+      hierarchy: new Cesium.PolygonHierarchy(
+        county.poly.map(c => Cesium.Cartesian3.fromDegrees(c[0], c[1]))
+      ),
+      material: Cesium.Color.fromCssColorString(county.color).withAlpha(0.07),
+      outline: false,
+      heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+      classificationType: Cesium.ClassificationType.TERRAIN,
+    }
+  });
+
+  boundaryEntities.push(line, fill);
+
+  // 标注
+  const label = viewer.entities.add({
+    position: Cesium.Cartesian3.fromDegrees(county.lon, county.lat, 500),
+    label: {
+      text: county.name,
+      font: 'bold 14px "Microsoft YaHei",sans-serif',
+      fillColor: Cesium.Color.fromCssColorString(county.color),
+      outlineColor: Cesium.Color.fromCssColorString('#000000'),
+      outlineWidth: 3,
+      style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+      verticalOrigin: Cesium.VerticalOrigin.CENTER,
+      horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+      disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
+      pixelOffset: new Cesium.Cartesian2(0, -16),
+    },
+    point: {
+      pixelSize: 7,
+      color: Cesium.Color.fromCssColorString(county.color),
+      outlineColor: Cesium.Color.WHITE,
+      outlineWidth: 2,
+      disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+    },
+    description: JSON.stringify(county),
+  });
+
+  labelEntities.push(label);
+});
+
+// ── 县区列表 ──────────────────────────────────────────
+const listEl = document.getElementById('county-list');
+COUNTIES.forEach((c, i) => {
+  const row = document.createElement('div');
+  row.className = 'county-row';
+  row.innerHTML = `
+    <div class="county-bar" style="background:${c.color}"></div>
+    <span class="county-name">${c.name}</span>
+    <span class="county-area">${c.area}</span>`;
+  row.onclick = () => flyToCounty(i);
+  listEl.appendChild(row);
+});
+
+// ── 飞行函数 ──────────────────────────────────────────
+function flyHome() {
+  viewer.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(105.06, 33.50, 300000),
+    orientation: { heading:0, pitch: Cesium.Math.toRadians(-50), roll:0 },
+    duration: 2.5,
+  });
+  closePopup();
+}
+flyHome();
+
+function flyToCounty(idx) {
+  const c = COUNTIES[idx];
+  viewer.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(c.lon, c.lat, 55000),
+    orientation: { heading:0, pitch: Cesium.Math.toRadians(-42), roll:0 },
+    duration: 2,
+  });
+  showPopup(c);
+}
+
+// ── 弹窗 ──────────────────────────────────────────────
+function showPopup(c) {
+  document.getElementById('popup-name').textContent = c.name;
+  document.getElementById('popup-name').style.color = c.color;
+  document.getElementById('popup-body').innerHTML = `
+    <div class="popup-row"><span class="popup-key">行政类型</span><span class="popup-val">${c.type}</span></div>
+    <div class="popup-row"><span class="popup-key">土地面积</span><span class="popup-val">${c.area}</span></div>
+    <div class="popup-row"><span class="popup-key">常住人口</span><span class="popup-val">${c.pop}</span></div>
+    <div class="popup-row"><span class="popup-key">中心经度</span><span class="popup-val">${c.lon}°E</span></div>
+    <div class="popup-row"><span class="popup-key">中心纬度</span><span class="popup-val">${c.lat}°N</span></div>
+    <div class="popup-row"><span class="popup-key">自然资源数据</span><span class="popup-val" style="color:var(--green)">● 已接入</span></div>`;
+  document.getElementById('popup').style.display = 'block';
+}
+function closePopup() { document.getElementById('popup').style.display = 'none'; }
+
+// 点击实体弹窗
+viewer.screenSpaceEventHandler.setInputAction(e => {
+  const picked = viewer.scene.pick(e.position);
+  if (Cesium.defined(picked) && Cesium.defined(picked.id) && picked.id.description) {
+    try {
+      const c = JSON.parse(picked.id.description.getValue());
+      if (c && c.name) showPopup(c);
+    } catch(e) {}
+  }
+}, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+// ── 图层控制 ──────────────────────────────────────────
+function toggleLayer(name, el) {
+  el.classList.toggle('on');
+  const on = el.classList.contains('on');
+  if (name === 'boundary') boundaryEntities.forEach(e => e.show = on);
+  else if (name === 'labels') labelEntities.forEach(e => e.show = on);
+  else if (name === 'satellite') { satLayer.show = on; annoLayer.show = on; }
+  else if (name === 'terrain') {
+    viewer.scene.globe.depthTestAgainstTerrain = on;
+    if (!on) viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider();
+    else viewer.terrainProvider = terrainProvider;
+  }
+}
+
+// ── 二维/三维切换 ────────────────────────────────────
+let is3D = true;
+function toggle2D3D(btn) {
+  is3D = !is3D;
+  if (is3D) {
+    viewer.scene.morphTo3D(1.5);
+    btn.textContent = '⬜ 二维切换';
+    setTimeout(flyHome, 1800);
+  } else {
+    viewer.scene.morphTo2D(1.5);
+    btn.textContent = '🌐 三维切换';
+  }
+}
+
+// ── 日照分析 ─────────────────────────────────────────
+let sunOn = false;
+function toggleSun(btn) {
+  sunOn = !sunOn;
+  btn.classList.toggle('active', sunOn);
+  viewer.scene.globe.enableLighting = sunOn;
+  viewer.shadows = sunOn;
+  if (sunOn) {
+    viewer.clock.currentTime = Cesium.JulianDate.fromDate(new Date('2024-12-22T04:00:00Z'));
+    viewer.clock.multiplier = 1800;
+    viewer.clock.shouldAnimate = true;
+  } else {
+    viewer.clock.shouldAnimate = false;
+    viewer.clock.multiplier = 1;
+  }
+}
+
+// ── 水淹模拟 ─────────────────────────────────────────
+let floodOn = false;
+let floodEntity = null;
+let floodTimer = null;
+let floodH = 900;
+
+function toggleFlood(btn) {
+  floodOn = !floodOn;
+  btn.classList.toggle('active', floodOn);
+  if (floodOn) {
+    viewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(104.92, 33.39, 35000),
+      orientation: { heading:0, pitch: Cesium.Math.toRadians(-38), roll:0 },
+      duration: 2,
+    });
+    floodH = 900;
+    setTimeout(() => {
+      floodEntity = viewer.entities.add({
+        polygon: {
+          hierarchy: new Cesium.PolygonHierarchy(
+            Cesium.Cartesian3.fromDegreesArray([
+              104.65,33.20, 105.25,33.20, 105.25,33.65, 104.65,33.65
+            ])
+          ),
+          extrudedHeight: floodH,
+          height: 860,
+          material: new Cesium.ColorMaterialProperty(
+            Cesium.Color.fromCssColorString('#1166ff').withAlpha(0.42)
+          ),
+        }
+      });
+      let rising = true;
+      floodTimer = setInterval(() => {
+        if (!floodEntity) return;
+        if (rising) { floodH += 3; if (floodH >= 980) rising = false; }
+        else        { floodH -= 3; if (floodH <= 900) rising = true; }
+        floodEntity.polygon.extrudedHeight = new Cesium.ConstantProperty(floodH);
+      }, 60);
+    }, 2200);
+  } else {
+    clearInterval(floodTimer);
+    if (floodEntity) { viewer.entities.remove(floodEntity); floodEntity = null; }
+  }
+}
+
+// ── 距离量测 ─────────────────────────────────────────
+let measureOn = false;
+let measurePts = [];
+let measureEntities = [];
+
+function toggleMeasure(btn) {
+  measureOn = !measureOn;
+  btn.classList.toggle('active', measureOn);
+  if (!measureOn) {
+    measureEntities.forEach(e => viewer.entities.remove(e));
+    measureEntities = []; measurePts = [];
+  }
+}
+
+viewer.screenSpaceEventHandler.setInputAction(e => {
+  if (!measureOn) return;
+  const ray = viewer.camera.getPickRay(e.position);
+  const pos = viewer.scene.globe.pick(ray, viewer.scene);
+  if (!pos) return;
+
+  measurePts.push(pos);
+  const dot = viewer.entities.add({
+    position: pos,
+    point: { pixelSize:10, color:Cesium.Color.fromCssColorString('#00ffc8'),
+      outlineColor:Cesium.Color.WHITE, outlineWidth:2,
+      disableDepthTestDistance: Number.POSITIVE_INFINITY }
+  });
+  measureEntities.push(dot);
+
+  if (measurePts.length === 2) {
+    const dist = Cesium.Cartesian3.distance(measurePts[0], measurePts[1]);
+    const mid = Cesium.Cartesian3.midpoint(measurePts[0], measurePts[1], new Cesium.Cartesian3());
+    const line = viewer.entities.add({
+      polyline: { positions: [...measurePts], width:2,
+        material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#00ffc8')),
+        clampToGround: false }
+    });
+    const lbl = viewer.entities.add({
+      position: mid,
+      label: {
+        text: dist > 1000 ? (dist/1000).toFixed(2)+' km' : dist.toFixed(0)+' m',
+        font: 'bold 14px "Microsoft YaHei"',
+        fillColor: Cesium.Color.fromCssColorString('#00ffc8'),
+        outlineColor: Cesium.Color.BLACK, outlineWidth:3,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        pixelOffset: new Cesium.Cartesian2(0,-22),
+      }
+    });
+    measureEntities.push(line, lbl);
+    measurePts = [];
+  }
+}, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+// ── 鼠标坐标 ─────────────────────────────────────────
+const coordsEl = document.getElementById('coords');
+const mmHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+mmHandler.setInputAction(mv => {
+  const ray = viewer.camera.getPickRay(mv.endPosition);
+  if (!ray) return;
+  const pos = viewer.scene.globe.pick(ray, viewer.scene);
+  if (pos) {
+    const c = Cesium.Cartographic.fromCartesian(pos);
+    coordsEl.textContent =
+      `经度: ${Cesium.Math.toDegrees(c.longitude).toFixed(4)}°  |  `+
+      `纬度: ${Cesium.Math.toDegrees(c.latitude).toFixed(4)}°  |  `+
+      `高程: ${Math.round(c.height)}m`;
+  }
+}, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
+// ── 时钟 ─────────────────────────────────────────────
+setInterval(() => {
+  document.getElementById('clk').textContent =
+    new Date().toLocaleTimeString('zh-CN', { hour12:false });
+}, 1000);
+</script>
+</body>
+</html>
