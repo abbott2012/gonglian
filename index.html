@@ -5,122 +5,439 @@
 <title>陇南市实景三维自然资源一体化平台</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.95.0/Cesium.js"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/cesium/1.95.0/Widgets/widgets.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
-* { margin:0; padding:0; box-sizing:border-box; }
-:root {
-  --bg:#050d1a; --panel:rgba(5,16,38,0.92); --border:rgba(0,180,255,0.22);
-  --accent:#00b4ff; --a2:#00ffc8; --text:#c0daf0; --dim:rgba(140,185,215,0.55);
-  --green:#00e07a; --red:#ff4d6a;
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#030a14;--bg2:#061326;--panel:rgba(6,18,40,0.9);--panel2:rgba(6,20,48,0.92);
+  --border:rgba(0,200,255,0.18);--border-strong:rgba(0,200,255,0.35);
+  --accent:#35d3ff;--a2:#00ffb3;--a3:#7b61ff;
+  --text:#d2eefc;--dim:rgba(150,210,240,0.55);
+  --green:#1cff9a;--red:#ff4d6d;--gold:#ffd166;
+  --glow:0 0 18px rgba(53,211,255,0.2);
+  --radius:10px;--radius-sm:8px;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
 }
-body { width:100vw; height:100vh; overflow:hidden; background:var(--bg);
-       font-family:"Microsoft YaHei","Noto Sans SC",sans-serif; }
-#cesiumContainer { width:100%; height:100%; }
+body{width:100vw;height:100vh;overflow:hidden;
+     background:radial-gradient(1200px 800px at 80% -10%,rgba(53,211,255,.12),transparent 60%),
+     linear-gradient(180deg,var(--bg),var(--bg2));
+     font-family:"Microsoft YaHei",sans-serif;color:var(--text);}
+#cesiumContainer{width:100%;height:100%;}
+body.lowperf #topglow,body.lowperf #scanline{display:none;}
+body.lowperf .pt{animation:none;opacity:0;}
 
-/* Cesium 默认UI隐藏 */
 .cesium-widget-credits,.cesium-viewer-toolbar,.cesium-viewer-animationContainer,
 .cesium-viewer-timelineContainer,.cesium-viewer-bottom,
 .cesium-viewer-fullscreenContainer,.cesium-viewer-navigationHelpButtonContainer
-{ display:none !important; }
+{display:none!important;}
 
+/* 粒子 */
+#particles{position:absolute;inset:0;z-index:1;pointer-events:none;}
+.pt{position:absolute;border-radius:50%;animation:floatUp linear infinite;opacity:0;}
+@keyframes floatUp{
+  0%{transform:translateY(100vh);opacity:0;}
+  10%{opacity:.7;}90%{opacity:.2;}
+  100%{transform:translateY(-40px);opacity:0;}
+}
 /* 扫描线 */
-#scanline { position:absolute; inset:0; z-index:1; pointer-events:none;
-  background:repeating-linear-gradient(0deg,transparent,transparent 3px,
-    rgba(0,180,255,0.012) 3px,rgba(0,180,255,0.012) 4px); }
+#scanline{position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,
+  rgba(0,200,255,.015) 2px,rgba(0,200,255,.015) 4px);}
+/* 顶部流光 */
+#topglow{position:absolute;top:60px;left:0;right:0;height:1px;z-index:3;pointer-events:none;
+  background:linear-gradient(90deg,transparent 0%,var(--accent) 30%,var(--a2) 50%,var(--accent) 70%,transparent 100%);
+  animation:topScan 4s linear infinite;opacity:.5;}
+@keyframes topScan{0%{transform:scaleX(0) translateX(-100%);}100%{transform:scaleX(1) translateX(0);}}
 
-/* 顶部 */
-#topbar {
-  position:absolute; top:0; left:0; right:0; height:52px; z-index:100;
-  background:linear-gradient(90deg,rgba(2,10,26,.97),rgba(4,18,46,.93) 50%,rgba(2,10,26,.97));
-  border-bottom:1px solid var(--border); backdrop-filter:blur(14px);
-  display:flex; align-items:center; justify-content:space-between; padding:0 18px;
+/* ── 顶部 ── */
+#topbar{
+  position:absolute;top:0;left:0;right:0;height:60px;z-index:100;
+  background:linear-gradient(90deg,rgba(4,10,20,.98),rgba(6,20,48,.96) 50%,rgba(4,10,20,.98));
+  border-bottom:1px solid var(--border);backdrop-filter:blur(18px);
+  display:flex;align-items:center;justify-content:space-between;padding:0 16px;
 }
-.logo { display:flex; align-items:center; gap:11px; }
-.logo-box { width:32px; height:32px; border-radius:7px;
-  background:linear-gradient(135deg,#0055cc,#00b4ff);
-  display:flex; align-items:center; justify-content:center; font-size:16px; }
-.t1 { font-size:14px; font-weight:700; color:#fff; letter-spacing:.04em; }
-.t2 { font-size:10px; color:var(--dim); letter-spacing:.1em; margin-top:1px; }
-.nav-btn {
-  padding:5px 13px; border:none; background:transparent; color:var(--dim);
-  font-size:12px; cursor:pointer; border-radius:4px; transition:all .18s;
-  font-family:inherit; letter-spacing:.04em;
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-box{width:36px;height:36px;border-radius:10px;
+  background:linear-gradient(135deg,#0b57ff,#35d3ff);
+  display:flex;align-items:center;justify-content:center;font-size:17px;
+  box-shadow:0 0 14px rgba(53,211,255,.45);}
+.t1{font-size:14px;font-weight:700;color:#fff;letter-spacing:.06em;
+    text-shadow:0 0 20px rgba(0,200,255,.4);}
+.t2{font-size:9px;color:var(--dim);letter-spacing:.18em;margin-top:1px;}
+.nav-area{display:flex;gap:8px;align-items:center;}
+.nav-group{display:flex;gap:6px;align-items:center;padding:6px;border-radius:12px;
+  background:rgba(0,200,255,.04);border:1px solid rgba(0,200,255,.08);}
+.nb{padding:6px 12px;border:1px solid rgba(0,200,255,.12);background:rgba(0,200,255,.03);
+  color:var(--dim);font-size:12px;cursor:pointer;border-radius:8px;
+  transition:all .2s;font-family:inherit;letter-spacing:.04em;height:30px;min-width:90px;}
+.nb:hover{border-color:var(--border-strong);color:var(--accent);background:rgba(0,200,255,.08);}
+.nb:active{transform:translateY(1px);}
+.nb.on{border-color:var(--accent);color:#00151f;background:linear-gradient(180deg,var(--accent),#16bde8);
+       box-shadow:0 0 12px rgba(53,211,255,.25);}
+.top-right{display:flex;align-items:center;gap:14px;}
+.live-wrap{display:flex;align-items:center;gap:6px;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 8px var(--green);animation:blink 1.5s infinite;}
+@keyframes blink{0%,100%{transform:scale(1);}50%{transform:scale(1.5);}}
+.live-txt{font-size:9px;color:var(--green);letter-spacing:.08em;}
+#clk{font-size:13px;color:var(--accent);font-weight:700;letter-spacing:.1em;
+     font-family:"Courier New",monospace;}
+.perf-btn{padding:4px 8px;border:1px solid var(--border);background:rgba(0,200,255,.08);
+  color:var(--dim);font-size:10px;border-radius:6px;cursor:pointer;transition:all .2s;
+  font-family:inherit;letter-spacing:.05em;}
+.perf-btn.on{border-color:var(--accent);color:var(--accent);background:rgba(0,200,255,.2);
+  box-shadow:0 0 10px rgba(0,200,255,.2);}
+
+/* ── 卡片 ── */
+.card{background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--radius);backdrop-filter:blur(18px);overflow:hidden;position:relative;
+  box-shadow:var(--shadow);}
+.card::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(0,200,255,.4),transparent);
+  animation:cardGlow 3s linear infinite;}
+@keyframes cardGlow{0%{opacity:0;}50%{opacity:1;}100%{opacity:0;}}
+.ch{padding:8px 12px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;}
+.chl{display:flex;align-items:center;gap:7px;}
+.cht{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.1em;}
+.cb{padding:10px 12px;}
+
+/* ── 左面板 ── */
+#lp{position:absolute;top:72px;left:16px;width:240px;z-index:100;
+    display:flex;flex-direction:column;gap:8px;}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.si{background:rgba(0,200,255,.04);border:1px solid rgba(0,200,255,.12);
+  border-radius:6px;padding:8px 10px;cursor:default;transition:all .2s;position:relative;overflow:hidden;}
+.si:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:var(--glow);}
+.si::before{content:'';position:absolute;bottom:0;left:0;width:100%;height:2px;
+  background:linear-gradient(90deg,var(--accent),var(--a2));opacity:.5;}
+.sv{font-size:17px;font-weight:700;color:var(--a2);line-height:1.1;}
+.sl{font-size:9px;color:var(--dim);margin-top:2px;letter-spacing:.05em;}
+
+.al-item{display:flex;align-items:flex-start;gap:7px;padding:6px 0;
+  border-bottom:1px solid rgba(0,200,255,.06);}
+.al-item:last-child{border:none;}
+.al-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.al-txt{font-size:11px;color:var(--text);line-height:1.45;}
+.al-time{font-size:9px;color:var(--dim);margin-top:1px;}
+
+.lr{display:flex;align-items:center;justify-content:space-between;
+  padding:5px 0;border-bottom:1px solid rgba(0,200,255,.06);}
+.lr:last-child{border:none;}
+.ln{font-size:11px;color:var(--text);display:flex;align-items:center;gap:6px;}
+.ld{width:7px;height:7px;border-radius:2px;}
+.tog{width:30px;height:16px;border-radius:8px;cursor:pointer;position:relative;
+  transition:all .2s;border:1px solid var(--border);background:rgba(0,200,255,.1);}
+.tog.on{background:rgba(0,200,255,.42);border-color:var(--accent);
+        box-shadow:0 0 6px rgba(0,200,255,.3);}
+.tog::after{content:'';position:absolute;width:10px;height:10px;
+  background:#fff;border-radius:50%;top:2px;left:2px;transition:left .2s;}
+.tog.on::after{left:16px;}
+
+/* ── 右面板（县区+状态）── */
+#rp{position:absolute;top:72px;right:16px;width:220px;z-index:100;
+    display:flex;flex-direction:column;gap:8px;}
+.cr{display:flex;align-items:center;padding:5px 4px;cursor:pointer;
+  border-radius:5px;transition:all .15s;border-bottom:1px solid rgba(0,200,255,.06);}
+.cr:last-child{border:none;}
+.cr:hover,.cr.sel{background:rgba(0,200,255,.09);box-shadow:inset 2px 0 0 var(--accent);}
+.cbar{width:3px;height:20px;border-radius:2px;flex-shrink:0;}
+.cname{font-size:12px;color:var(--text);flex:1;padding-left:8px;}
+.carea{font-size:10px;color:var(--dim);}
+.sr{display:flex;justify-content:space-between;padding:4px 0;
+  border-bottom:1px solid rgba(0,200,255,.06);}
+.sr:last-child{border:none;}
+.sk{font-size:10px;color:var(--dim);}
+.sv2{font-size:10px;font-weight:700;}
+
+/* ── 右侧抽屉式分析面板 ── */
+#drawer{
+  position:absolute;top:60px;right:0;bottom:0;width:340px;z-index:200;
+  background:var(--panel2);border-left:1px solid var(--border-strong);
+  backdrop-filter:blur(20px);
+  box-shadow:-10px 0 28px rgba(0,0,0,.35);
+  transform:translateX(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;
 }
-.nav-btn:hover,.nav-btn.active { background:rgba(0,180,255,.14); color:var(--accent); }
-.status-dot { width:7px; height:7px; border-radius:50%; background:var(--green);
-  box-shadow:0 0 6px var(--green); animation:blink 2s infinite; }
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+#drawer.open{transform:translateX(0);}
+#drawer-head{
+  padding:14px 16px 10px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+}
+#drawer-title{font-size:14px;font-weight:700;color:var(--accent);letter-spacing:.06em;}
+#drawer-close{cursor:pointer;font-size:18px;color:var(--dim);
+  width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  border-radius:50%;transition:all .2s;}
+#drawer-close:hover{color:var(--red);background:rgba(255,61,90,.1);}
+#drawer-body{flex:1;overflow-y:auto;padding:14px 16px;}
+#drawer-body::-webkit-scrollbar{width:3px;}
+#drawer-body::-webkit-scrollbar-track{background:transparent;}
+#drawer-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 
-/* 面板通用 */
-.card { background:var(--panel); border:1px solid var(--border);
-  border-radius:8px; backdrop-filter:blur(18px); overflow:hidden; margin-bottom:9px; }
-.card-h { padding:9px 13px; border-bottom:1px solid var(--border);
-  display:flex; align-items:center; gap:7px; }
-.card-h-title { font-size:11px; font-weight:700; color:var(--accent); letter-spacing:.1em; }
-.card-b { padding:10px 13px; }
+/* 步骤 */
+.steps{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.step{display:flex;align-items:center;gap:5px;padding:5px 10px;
+  border:1px solid var(--border);border-radius:16px;font-size:11px;color:var(--dim);transition:all .2s;}
+.step.done{border-color:var(--green);color:var(--green);background:rgba(0,232,122,.07);}
+.step.cur{border-color:var(--accent);color:var(--accent);background:rgba(0,200,255,.1);
+  box-shadow:0 0 8px rgba(0,200,255,.15);}
+.sn{width:17px;height:17px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:10px;font-weight:700;background:rgba(255,255,255,.1);}
+.step.cur .sn{background:var(--accent);color:#000;}
+.step.done .sn{background:var(--green);color:#000;}
 
-/* 左面板 */
-#lp { position:absolute; top:68px; left:14px; width:230px; z-index:100; }
-.stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
-.stat-item { background:rgba(0,180,255,.05); border:1px solid rgba(0,180,255,.1);
-  border-radius:6px; padding:8px 10px; }
-.stat-v { font-size:18px; font-weight:700; color:var(--a2); line-height:1; }
-.stat-l { font-size:10px; color:var(--dim); margin-top:3px; }
+/* 按钮组 */
+.btn-group{display:flex;gap:7px;margin-bottom:12px;}
+.opt-btn{flex:1;padding:10px 6px;border:1px solid var(--border);
+  background:rgba(0,200,255,.05);color:var(--dim);border-radius:6px;
+  cursor:pointer;font-size:11px;font-family:inherit;transition:all .2s;
+  text-align:center;line-height:1.5;}
+.opt-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,200,255,.1);}
+.opt-btn.sel{border-color:var(--accent);color:#000;background:var(--accent);
+  box-shadow:0 0 12px rgba(0,200,255,.3);}
 
-/* 图层开关 */
-.layer-row { display:flex; align-items:center; justify-content:space-between;
-  padding:5px 0; border-bottom:1px solid rgba(0,180,255,.07); }
-.layer-row:last-child { border:none; }
-.layer-name { font-size:12px; color:var(--text); display:flex; align-items:center; gap:6px; }
-.layer-dot { width:7px; height:7px; border-radius:2px; display:inline-block; }
-.toggle { width:30px; height:16px; border-radius:8px; cursor:pointer; position:relative;
-  transition:background .2s; border:1px solid var(--border); background:rgba(0,180,255,.14); }
-.toggle.on { background:rgba(0,180,255,.5); border-color:var(--accent); }
-.toggle::after { content:''; position:absolute; width:10px; height:10px;
-  background:#fff; border-radius:50%; top:2px; left:2px; transition:left .2s; }
-.toggle.on::after { left:16px; }
+/* 进度条 */
+.prog-wrap{margin:12px 0;}
+.prog-label{font-size:11px;color:var(--dim);margin-bottom:5px;
+  display:flex;justify-content:space-between;}
+.prog-bg{height:5px;background:rgba(0,200,255,.1);border-radius:3px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:3px;width:0;transition:width .1s linear;
+  background:linear-gradient(90deg,var(--accent),var(--a2));}
 
-/* 右面板 */
-#rp { position:absolute; top:68px; right:14px; width:210px; z-index:100; }
-.county-row { display:flex; align-items:center; justify-content:space-between;
-  padding:5px 4px; cursor:pointer; border-radius:4px; transition:all .15s;
-  border-bottom:1px solid rgba(0,180,255,.07); }
-.county-row:last-child { border:none; }
-.county-row:hover { background:rgba(0,180,255,.09); padding-left:8px; }
-.county-bar { width:3px; height:18px; border-radius:2px; flex-shrink:0; }
-.county-name { font-size:12px; color:var(--text); flex:1; padding-left:8px; }
-.county-area { font-size:10px; color:var(--dim); }
+/* 结果卡 */
+.res-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
+.res-grid.col3{grid-template-columns:1fr 1fr 1fr;}
+.ri{background:rgba(0,200,255,.05);border:1px solid rgba(0,200,255,.15);
+  border-radius:7px;padding:10px;text-align:center;}
+.rv{font-size:22px;font-weight:700;color:var(--a2);line-height:1;}
+.rl{font-size:9px;color:var(--dim);margin-top:4px;letter-spacing:.05em;}
+.rbar{height:3px;border-radius:2px;margin-top:7px;
+  background:linear-gradient(90deg,var(--accent),var(--a2));}
+
+/* 提示框 */
+.hint{font-size:11px;color:var(--dim);padding:10px 12px;
+  background:rgba(0,200,255,.04);border-radius:6px;border-left:2px solid var(--accent);
+  line-height:1.7;margin-bottom:12px;}
+.hint.warn{border-color:var(--gold);background:rgba(255,204,68,.04);}
+
+/* 运行按钮 */
+.run-btn{width:100%;padding:10px;border:1px solid var(--accent);
+  background:rgba(0,200,255,.12);color:var(--accent);border-radius:6px;
+  cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;
+  transition:all .2s;letter-spacing:.06em;margin-top:8px;}
+.run-btn:hover{background:rgba(0,200,255,.25);box-shadow:0 0 16px rgba(0,200,255,.3);}
+.run-btn:disabled{opacity:.4;cursor:not-allowed;}
+.feature-search{display:flex;gap:8px;margin-bottom:10px;}
+.feature-input{flex:1;background:rgba(0,200,255,.04);border:1px solid var(--border);
+  color:var(--text);padding:6px 8px;border-radius:6px;font-size:11px;font-family:inherit;}
+.feature-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 10px rgba(0,200,255,.2);}
+.feature-clear{padding:6px 10px;border:1px solid var(--border);background:rgba(0,200,255,.08);
+  color:var(--dim);font-size:10px;border-radius:6px;cursor:pointer;font-family:inherit;}
+.feature-list{display:flex;flex-direction:column;gap:10px;}
+.feature-section{border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.feature-section-title{padding:8px 10px;font-size:11px;color:var(--accent);
+  letter-spacing:.08em;background:rgba(0,200,255,.06);}
+.feature-group{padding:8px 10px;border-top:1px solid rgba(0,200,255,.08);}
+.feature-group-title{font-size:10px;color:var(--dim);margin-bottom:6px;}
+.feature-item{display:flex;gap:8px;padding:6px 8px;border:1px solid rgba(0,200,255,.12);
+  border-radius:6px;background:rgba(0,200,255,.03);cursor:pointer;transition:all .15s;}
+.feature-item:hover{border-color:var(--accent);background:rgba(0,200,255,.08);}
+.feature-main{flex:1;}
+.feature-name{font-size:12px;color:var(--text);}
+.feature-desc{font-size:10px;color:var(--dim);margin-top:2px;line-height:1.4;}
+.feature-meta{display:flex;flex-direction:column;gap:4px;align-items:flex-end;}
+.tag{font-size:9px;padding:2px 6px;border-radius:10px;border:1px solid var(--border);
+  color:var(--dim);background:rgba(0,200,255,.04);}
+.tag.must{border-color:var(--red);color:var(--red);background:rgba(255,61,90,.08);}
+.tag.important{border-color:var(--gold);color:var(--gold);background:rgba(255,204,68,.08);}
+.tag.normal{border-color:var(--border);color:var(--dim);background:rgba(0,200,255,.04);}
+.tag.status-ready{border-color:var(--green);color:var(--green);background:rgba(0,232,122,.08);}
+.tag.status-demo{border-color:var(--accent);color:var(--accent);background:rgba(0,200,255,.08);}
+.tag.status-entry{border-color:var(--border);color:var(--dim);background:rgba(0,200,255,.04);}
+
+/* 太阳动画 */
+#sun-anim{position:absolute;pointer-events:none;z-index:50;display:none;
+  top:72px;left:50%;transform:translateX(-50%);}
+.sun-arc{
+  width:500px;height:250px;border:2px dashed rgba(255,200,50,.25);
+  border-bottom:none;border-radius:250px 250px 0 0;position:relative;
+}
+.sun-ball{
+  width:28px;height:28px;border-radius:50%;
+  background:radial-gradient(circle,#fff8a0,#ffcc00,#ff8800);
+  box-shadow:0 0 20px 8px rgba(255,200,0,.5),0 0 40px 16px rgba(255,150,0,.25);
+  position:absolute;top:-14px;left:50%;transform:translateX(-50%);
+  animation:sunMove 8s ease-in-out infinite;
+}
+@keyframes sunMove{
+  0%{left:2%;top:calc(100% - 14px);}
+  25%{left:25%;top:20%;}
+  50%{left:50%;top:-14px;}
+  75%{left:75%;top:20%;}
+  100%{left:98%;top:calc(100% - 14px);}
+}
+.sun-label{position:absolute;font-size:11px;color:rgba(255,200,50,.8);letter-spacing:.06em;}
+
+/* 水淹效果遮罩 */
+#flood-info{position:absolute;bottom:186px;left:260px;z-index:100;display:none;
+  background:rgba(1,9,24,.92);border:1px solid rgba(0,150,255,.5);
+  border-radius:8px;padding:10px 14px;
+  box-shadow:0 0 20px rgba(0,100,255,.3);}
+.fi-title{font-size:11px;color:#00aaff;margin-bottom:6px;letter-spacing:.08em;}
+.fi-row{display:flex;justify-content:space-between;gap:20px;padding:2px 0;}
+.fi-k{font-size:10px;color:var(--dim);}
+.fi-v{font-size:11px;color:var(--a2);font-weight:700;}
+
+/* 量测结果 */
+#measure-hud{position:absolute;bottom:186px;left:260px;z-index:100;display:none;
+  background:rgba(1,9,24,.92);border:1px solid rgba(0,255,179,.4);
+  border-radius:8px;padding:10px 14px;box-shadow:0 0 16px rgba(0,255,179,.2);}
+.mh-title{font-size:10px;color:var(--a2);margin-bottom:4px;letter-spacing:.08em;}
+.mh-val{font-size:22px;font-weight:700;color:#fff;}
+.mh-sub{font-size:10px;color:var(--dim);margin-top:3px;}
 
 /* 弹窗 */
-#popup { position:absolute; left:260px; top:75px; z-index:200; display:none;
-  background:var(--panel); border:1px solid var(--border); border-radius:10px;
-  padding:13px 16px; min-width:190px; backdrop-filter:blur(22px);
-  box-shadow:0 8px 32px rgba(0,0,0,.55); }
-.popup-title { font-size:13px; font-weight:700; color:#fff; margin-bottom:9px;
-  border-bottom:1px solid var(--border); padding-bottom:7px;
-  display:flex; justify-content:space-between; }
-.popup-close { cursor:pointer; color:var(--dim); font-size:15px; }
-.popup-close:hover { color:var(--red); }
-.popup-row { display:flex; justify-content:space-between; padding:3px 0; }
-.popup-key { font-size:11px; color:var(--dim); }
-.popup-val { font-size:11px; color:var(--a2); font-weight:500; }
+#popup{position:absolute;left:264px;top:76px;z-index:300;display:none;
+  background:rgba(1,9,24,.96);border:1px solid var(--border);
+  border-radius:10px;padding:13px 16px;min-width:195px;
+  backdrop-filter:blur(24px);box-shadow:0 8px 40px rgba(0,0,0,.6),var(--glow);}
+.pt2{font-size:13px;font-weight:700;margin-bottom:9px;
+  border-bottom:1px solid var(--border);padding-bottom:7px;
+  display:flex;justify-content:space-between;align-items:center;}
+.pc{cursor:pointer;color:var(--dim);font-size:15px;}
+.pc:hover{color:var(--red);}
+.pr{display:flex;justify-content:space-between;padding:3px 0;}
+.pk{font-size:11px;color:var(--dim);}
+.pv{font-size:11px;color:var(--a2);font-weight:600;}
 
-/* 坐标栏 */
-#coords { position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
-  z-index:100; font-size:11px; color:var(--dim); letter-spacing:.07em; }
+/* 坐标 */
+#coords{position:absolute;bottom:186px;left:50%;transform:translateX(-50%);
+  z-index:100;font-size:11px;color:var(--dim);letter-spacing:.07em;
+  background:rgba(1,9,24,.75);padding:3px 14px;border-radius:10px;
+  border:1px solid var(--border);}
+
+/* 底部图表 */
+#charts-bar{
+  position:absolute;bottom:0;left:50%;right:auto;height:176px;z-index:100;
+  display:flex;gap:10px;padding:10px;
+  background:linear-gradient(0deg,rgba(4,10,20,.98),rgba(6,20,48,.9));
+  border-top:1px solid var(--border);
+  box-sizing:border-box;
+  width:calc(100% - 40px);max-width:1200px;transform:translateX(-50%);
+}
+#charts-bar.shifted{transform:translateX(-50%) translateX(-170px);}
+.cc{flex:1;background:rgba(0,200,255,.03);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:8px;position:relative;}
+.cc-title{font-size:10px;color:var(--accent);letter-spacing:.07em;margin-bottom:5px;}
 
 /* 操作提示 */
-#tips { position:absolute; bottom:28px; right:14px; z-index:100;
-  background:var(--panel); border:1px solid var(--border); border-radius:8px;
-  padding:8px 12px; backdrop-filter:blur(14px); }
-.tip-row { display:flex; gap:8px; padding:2px 0; }
-.tip-k { font-size:10px; color:var(--accent); }
-.tip-v { font-size:10px; color:var(--dim); }
+#tips{position:absolute;bottom:186px;right:16px;z-index:100;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:8px;padding:7px 11px;backdrop-filter:blur(14px);}
+#tips.shifted{right:356px;}
+.trow{display:flex;gap:8px;padding:2px 0;}
+.tk{font-size:10px;color:var(--accent);}
+.tv{font-size:10px;color:var(--dim);}
+
+#mode-hud{position:absolute;bottom:246px;right:16px;z-index:120;display:none;
+  background:rgba(1,9,24,.9);border:1px solid rgba(0,200,255,.35);
+  border-radius:8px;padding:6px 10px;backdrop-filter:blur(14px);gap:8px;
+  align-items:center;}
+#mode-hud.shifted{right:356px;}
+#mode-name{font-size:10px;color:var(--accent);letter-spacing:.06em;}
+#mode-exit{border:1px solid rgba(255,61,90,.5);color:var(--red);background:rgba(255,61,90,.08);
+  font-size:10px;border-radius:6px;padding:2px 8px;cursor:pointer;}
+#sys-toast{position:absolute;top:64px;right:12px;z-index:400;display:none;
+  background:rgba(1,9,24,.92);border:1px solid rgba(255,204,68,.5);
+  color:var(--gold);font-size:11px;padding:6px 10px;border-radius:8px;
+  backdrop-filter:blur(12px);max-width:260px;line-height:1.5;}
+@media (max-width:1400px){
+  .nb{min-width:80px;}
+  #lp{width:220px;}
+  #rp{width:200px;}
+  #charts-bar{max-width:1080px;}
+  #drawer{width:320px;}
+  #tips.shifted,#mode-hud.shifted{right:336px;}
+}
+@media (max-width:1200px){
+  #rp{display:none;}
+  #charts-bar{width:calc(100% - 32px);max-width:none;}
+  #flood-info,#measure-hud,#fence-hud,#popup{left:16px;}
+}
+@media (max-width:1024px){
+  #topbar{height:56px;}
+  #topglow{top:56px;}
+  #drawer{top:56px;width:300px;}
+  #lp,#rp{top:66px;}
+  #sun-anim{top:66px;}
+  .nav-group{padding:4px;}
+  .nb{min-width:72px;font-size:11px;height:28px;}
+}
+@media (max-width:900px){
+  #lp{display:none;}
+  #charts-bar{height:150px;width:calc(100% - 24px);max-width:none;}
+  #coords{bottom:160px;font-size:10px;}
+  #tips{bottom:160px;}
+  #mode-hud{bottom:214px;}
+  #tips.shifted,#mode-hud.shifted{right:316px;}
+}
+@media (max-width:760px){
+  .t2{display:none;}
+  .nav-area{flex-wrap:wrap;}
+  #topbar{height:auto;padding:8px 12px;align-items:flex-start;}
+  #topglow{top:96px;}
+  #drawer{top:96px;width:100%;}
+  #charts-bar.shifted{right:0;}
+  #tips.shifted,#mode-hud.shifted{right:16px;}
+}
 </style>
 </head>
 <body>
 
 <div id="cesiumContainer"></div>
+<div id="particles"></div>
 <div id="scanline"></div>
+<div id="topglow"></div>
+
+<!-- 太阳轨迹动画 -->
+<div id="sun-anim">
+  <div class="sun-arc">
+    <div class="sun-ball"></div>
+    <span class="sun-label" style="left:0;bottom:-20px;">日出</span>
+    <span class="sun-label" style="left:50%;transform:translateX(-50%);top:-24px;">正午</span>
+    <span class="sun-label" style="right:0;bottom:-20px;">日落</span>
+  </div>
+</div>
+
+<!-- 水淹信息 -->
+<div id="flood-info">
+  <div class="fi-title">🌊 水淹模拟 · 实时数据</div>
+  <div class="fi-row"><span class="fi-k">当前水位</span><span class="fi-v" id="fi-level">--</span></div>
+  <div class="fi-row"><span class="fi-k">淹没面积</span><span class="fi-v" id="fi-area">--</span></div>
+  <div class="fi-row"><span class="fi-k">影响人口</span><span class="fi-v" id="fi-pop">--</span></div>
+  <div class="fi-row"><span class="fi-k">农田损失</span><span class="fi-v" id="fi-farm">--</span></div>
+</div>
+
+<!-- 量测HUD -->
+<div id="measure-hud">
+  <div class="mh-title">📏 距离量测结果</div>
+  <div class="mh-val" id="mh-val">等待点击...</div>
+  <div class="mh-sub" id="mh-sub">在地图上点击第 1 个点（起点）</div>
+</div>
+
+<!-- 围栏HUD -->
+<div id="fence-hud" style="position:absolute;bottom:186px;left:260px;z-index:100;display:none;
+  background:rgba(1,9,24,.92);border:1px solid rgba(123,97,255,.5);
+  border-radius:8px;padding:10px 14px;box-shadow:0 0 16px rgba(123,97,255,.2);">
+  <div style="font-size:10px;color:#a78fff;margin-bottom:5px;letter-spacing:.08em;">🔲 围栏面积实时计算</div>
+  <div style="font-size:22px;font-weight:700;color:#fff;" id="fence-area-val">--</div>
+  <div style="font-size:10px;color:var(--dim);margin-top:3px;" id="fence-area-sub">点击地图绘制围栏顶点</div>
+  <div style="display:flex;gap:10px;margin-top:6px;">
+    <span style="font-size:11px;color:var(--a2);" id="fence-ha">-- 公顷</span>
+    <span style="font-size:11px;color:var(--gold);" id="fence-mu">-- 亩</span>
+    <span style="font-size:11px;color:var(--accent);" id="fence-pts">0个顶点</span>
+  </div>
+</div>
 
 <!-- 顶部 -->
 <div id="topbar">
@@ -128,63 +445,65 @@ body { width:100vw; height:100vh; overflow:hidden; background:var(--bg);
     <div class="logo-box">🗺</div>
     <div>
       <div class="t1">陇南市实景三维自然资源一体化平台</div>
-      <div class="t2">LONGNAN NATURAL RESOURCES 3D PLATFORM · DEMO</div>
+      <div class="t2">LONGNAN NATURAL RESOURCES 3D INTEGRATED PLATFORM · v3.0</div>
     </div>
   </div>
-  <div style="display:flex;gap:2px;">
-    <button class="nav-btn" onclick="flyHome()">🏠 全市总览</button>
-    <button class="nav-btn" onclick="toggle2D3D(this)">⬜ 二维切换</button>
-    <button class="nav-btn" id="btn-sun" onclick="toggleSun(this)">☀ 日照分析</button>
-    <button class="nav-btn" id="btn-flood" onclick="toggleFlood(this)">🌊 水淹模拟</button>
-    <button class="nav-btn" id="btn-measure" onclick="toggleMeasure(this)">📏 距离量测</button>
+  <div class="nav-area">
+    <div class="nav-group">
+      <button class="nb" id="btn-home" onclick="flyHome()">🏠 全市总览</button>
+      <button class="nb" id="btn-2d3d" onclick="toggle2D3D(this)">⬜ 二维切换</button>
+      <button class="nb" id="btn-features" onclick="openDrawer('features',this)">🧩 功能中心</button>
+    </div>
+    <div class="nav-group">
+      <button class="nb" id="btn-sun" onclick="openDrawer('sun',this)">☀ 日照分析</button>
+      <button class="nb" id="btn-flood" onclick="openDrawer('flood',this)">🌊 水淹模拟</button>
+      <button class="nb" id="btn-measure" onclick="openDrawer('measure',this)">📏 距离量测</button>
+      <button class="nb" id="btn-fence" onclick="openDrawer('fence',this)">🔲 围栏面积</button>
+    </div>
   </div>
-  <div style="display:flex;align-items:center;gap:12px;">
-    <div class="status-dot"></div>
-    <span id="clk" style="font-size:12px;color:var(--dim);">--:--:--</span>
+  <div class="top-right">
+    <div id="dim-badge" style="font-size:10px;padding:2px 10px;border-radius:10px;font-weight:700;
+      letter-spacing:.1em;border:1px solid rgba(0,200,255,.4);color:var(--accent);
+      background:rgba(0,200,255,.1);">三维 3D</div>
+    <button id="perf-btn" class="perf-btn">⚡ 性能模式</button>
+    <div class="live-wrap"><div class="live-dot"></div><span class="live-txt">LIVE</span></div>
+    <span id="clk">--:--:--</span>
   </div>
 </div>
 
 <!-- 左面板 -->
 <div id="lp">
   <div class="card">
-    <div class="card-h"><span>📊</span><span class="card-h-title">数据概览</span></div>
-    <div class="card-b">
-      <div class="stat-grid">
-        <div class="stat-item"><div class="stat-v">2.79万</div><div class="stat-l">km² 总面积</div></div>
-        <div class="stat-item"><div class="stat-v">9</div><div class="stat-l">县区行政单元</div></div>
-        <div class="stat-item"><div class="stat-v">281万</div><div class="stat-l">常住人口</div></div>
-        <div class="stat-item"><div class="stat-v">47.2%</div><div class="stat-l">林地覆盖率</div></div>
+    <div class="ch"><div class="chl"><span>📊</span><span class="cht">全市数据概览</span></div>
+      <span style="font-size:9px;color:var(--green)">● 实时更新</span></div>
+    <div class="cb">
+      <div class="sg">
+        <div class="si"><div class="sv">2.79万</div><div class="sl">国土面积 km²</div></div>
+        <div class="si"><div class="sv">9</div><div class="sl">县区行政单元</div></div>
+        <div class="si"><div class="sv">281万</div><div class="sl">常住人口</div></div>
+        <div class="si"><div class="sv">47.2%</div><div class="sl">林地覆盖率</div></div>
+        <div class="si"><div class="sv">18.3%</div><div class="sl">耕地占比</div></div>
+        <div class="si"><div class="sv">1,247</div><div class="sl">监测地块数</div></div>
       </div>
     </div>
   </div>
   <div class="card">
-    <div class="card-h"><span>🗂</span><span class="card-h-title">图层控制</span></div>
-    <div class="card-b">
-      <div class="layer-row">
-        <span class="layer-name"><span class="layer-dot" style="background:#00b4ff"></span>行政区划边界</span>
-        <div class="toggle on" id="tog-boundary" onclick="toggleLayer('boundary',this)"></div>
-      </div>
-      <div class="layer-row">
-        <span class="layer-name"><span class="layer-dot" style="background:#ffd166"></span>县区名称标注</span>
-        <div class="toggle on" id="tog-labels" onclick="toggleLayer('labels',this)"></div>
-      </div>
-      <div class="layer-row">
-        <span class="layer-name"><span class="layer-dot" style="background:#00e07a"></span>卫星影像底图</span>
-        <div class="toggle on" id="tog-satellite" onclick="toggleLayer('satellite',this)"></div>
-      </div>
-      <div class="layer-row">
-        <span class="layer-name"><span class="layer-dot" style="background:#c77dff"></span>三维地形高程</span>
-        <div class="toggle on" id="tog-terrain" onclick="toggleLayer('terrain',this)"></div>
-      </div>
-    </div>
+    <div class="ch"><div class="chl"><span>⚠️</span><span class="cht">自然资源预警</span></div>
+      <span style="font-size:9px;padding:1px 6px;background:rgba(255,61,90,.15);
+        border:1px solid rgba(255,61,90,.3);border-radius:8px;color:var(--red);">3条</span></div>
+    <div class="cb" id="alert-list"></div>
   </div>
   <div class="card">
-    <div class="card-h"><span>📡</span><span class="card-h-title">系统状态</span></div>
-    <div class="card-b">
-      <div class="layer-row"><span class="layer-name" style="font-size:11px">天地图卫星服务</span><span style="font-size:11px;color:var(--green)">● 在线</span></div>
-      <div class="layer-row"><span class="layer-name" style="font-size:11px">地形高程服务</span><span style="font-size:11px;color:var(--green)">● 在线</span></div>
-      <div class="layer-row"><span class="layer-name" style="font-size:11px">矢量边界数据</span><span style="font-size:11px;color:var(--green)">● 已加载</span></div>
-      <div class="layer-row" style="border:none"><span class="layer-name" style="font-size:11px">三维渲染引擎</span><span style="font-size:11px;color:var(--accent)">Cesium</span></div>
+    <div class="ch"><div class="chl"><span>🗂</span><span class="cht">图层控制</span></div></div>
+    <div class="cb">
+      <div class="lr"><span class="ln"><span class="ld" style="background:#00c8ff"></span>行政区划</span>
+        <div class="tog on" onclick="toggleLayer('boundary',this)"></div></div>
+      <div class="lr"><span class="ln"><span class="ld" style="background:#ffcc44"></span>县区标注</span>
+        <div class="tog on" onclick="toggleLayer('labels',this)"></div></div>
+      <div class="lr"><span class="ln"><span class="ld" style="background:#00e87a"></span>卫星影像</span>
+        <div class="tog on" onclick="toggleLayer('satellite',this)"></div></div>
+      <div class="lr"><span class="ln"><span class="ld" style="background:#c77dff"></span>三维地形</span>
+        <div class="tog on" onclick="toggleLayer('terrain',this)"></div></div>
     </div>
   </div>
 </div>
@@ -192,405 +511,1482 @@ body { width:100vw; height:100vh; overflow:hidden; background:var(--bg);
 <!-- 右面板 -->
 <div id="rp">
   <div class="card">
-    <div class="card-h"><span>📍</span><span class="card-h-title">县区列表 · 点击定位</span></div>
-    <div class="card-b" id="county-list"></div>
+    <div class="ch"><div class="chl"><span>📍</span><span class="cht">县区列表</span></div>
+      <span style="font-size:9px;color:var(--dim)">点击定位</span></div>
+    <div class="cb" id="county-list"></div>
   </div>
+  <div class="card">
+    <div class="ch"><div class="chl"><span>📡</span><span class="cht">系统状态</span></div></div>
+    <div class="cb">
+      <div class="sr"><span class="sk">天地图服务</span><span class="sv2" style="color:var(--green)">● 正常</span></div>
+      <div class="sr"><span class="sk">地形高程</span><span class="sv2" style="color:var(--green)">● 正常</span></div>
+      <div class="sr"><span class="sk">矢量边界</span><span class="sv2" style="color:var(--green)">● 已加载</span></div>
+      <div class="sr"><span class="sk">数据更新</span><span class="sv2" style="color:var(--gold)">今日08:00</span></div>
+      <div class="sr"><span class="sk">渲染引擎</span><span class="sv2" style="color:var(--accent)">Cesium</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 右侧抽屉 -->
+<div id="drawer">
+  <div id="drawer-head">
+    <span id="drawer-title">分析面板</span>
+    <span id="drawer-close" onclick="closeDrawer()">✕</span>
+  </div>
+  <div id="drawer-body"></div>
 </div>
 
 <!-- 弹窗 -->
 <div id="popup">
-  <div class="popup-title">
+  <div class="pt2">
     <span id="popup-name">县区信息</span>
-    <span class="popup-close" onclick="closePopup()">✕</span>
+    <span class="pc" onclick="closePopup()">✕</span>
   </div>
   <div id="popup-body"></div>
 </div>
 
-<!-- 坐标 -->
-<div id="coords">经度: -- | 纬度: -- | 高程: --m</div>
+<!-- 底部图表 -->
+<div id="charts-bar">
+  <div class="cc">
+    <div class="cc-title">📈 近5年土地面积变化（万亩）</div>
+    <canvas id="chart-land" height="105"></canvas>
+  </div>
+  <div class="cc">
+    <div class="cc-title">📊 各县区耕地面积（万亩）</div>
+    <canvas id="chart-farm" height="105"></canvas>
+  </div>
+  <div class="cc" style="flex:.55;">
+    <div class="cc-title">🥧 地类构成</div>
+    <canvas id="chart-pie" height="105"></canvas>
+  </div>
+</div>
 
-<!-- 操作提示 -->
+<div id="coords">经度: -- | 纬度: -- | 高程: --m</div>
+<div id="mode-hud">
+  <span id="mode-name">模式已开启</span>
+  <button id="mode-exit">退出</button>
+</div>
+<div id="sys-toast"></div>
 <div id="tips">
-  <div class="tip-row"><span class="tip-k">左键拖拽</span><span class="tip-v">旋转视角</span></div>
-  <div class="tip-row"><span class="tip-k">右键拖拽</span><span class="tip-v">平移地图</span></div>
-  <div class="tip-row"><span class="tip-k">滚轮</span><span class="tip-v">缩放高度</span></div>
-  <div class="tip-row"><span class="tip-k">点击县名</span><span class="tip-v">飞行定位</span></div>
+  <div class="trow"><span class="tk">左键拖拽</span><span class="tv">旋转视角</span></div>
+  <div class="trow"><span class="tk">右键拖拽</span><span class="tv">平移地图</span></div>
+  <div class="trow"><span class="tk">滚轮</span><span class="tv">缩放高度</span></div>
+  <div class="trow"><span class="tk">点县区名</span><span class="tv">飞行定位</span></div>
 </div>
 
 <script>
-// ── 配置 ──────────────────────────────────────────────
-const TDT_KEY = '216175d2f188a79b163c0a55e2d073dc';
+const perfState={low:false};
+let currentMode=null;
+let toastTimer=null;
+function showToast(msg){
+  const el=document.getElementById('sys-toast');
+  if(!el)return;
+  el.textContent=msg;
+  el.style.display='block';
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{el.style.display='none';},3200);
+}
+function safeRun(fn){
+  try{fn();}catch(ex){showToast('脚本异常：'+(ex&&ex.message?ex.message:'未知错误')); }
+}
+window.addEventListener('error',e=>{
+  if(e&&e.message)showToast('脚本异常：'+e.message);
+});
+function detectLowPerf(){
+  const prefers=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const mem=navigator.deviceMemory||0;
+  const cores=navigator.hardwareConcurrency||0;
+  return prefers||(mem&&mem<=4)||(cores&&cores<=4);
+}
+perfState.low=detectLowPerf();
+let viewer=null,annoLayer=null,satLayer=null,terrainProvider=null;
+let cesiumReady=false;
+let initError='';
+function ensureCesium(){
+  if(!cesiumReady){
+    showToast(initError||'三维引擎未就绪');
+    return false;
+  }
+  return true;
+}
+function applyPerfMode(){
+  document.body.classList.toggle('lowperf',perfState.low);
+  const btn=document.getElementById('perf-btn');
+  if(btn){
+    btn.classList.toggle('on',perfState.low);
+    btn.textContent=perfState.low?'⚡ 性能模式:开':'⚡ 性能模式';
+  }
+  if(!viewer)return;
+  viewer.scene.fog.enabled=!perfState.low;
+  if(currentMode==='sun'){
+    viewer.scene.globe.enableLighting=true;
+    viewer.shadows=!perfState.low;
+  }else{
+    viewer.scene.globe.enableLighting=false;
+    viewer.shadows=false;
+  }
+}
 
-const COUNTIES = [
-  { name:'武都区', lon:104.9236, lat:33.3922, area:'4683km²', pop:'55万', type:'市辖区', color:'#00b4ff',
-    poly:[[104.48,33.17],[104.72,33.02],[104.85,33.05],[105.05,33.12],[105.18,33.15],[105.35,33.28],[105.38,33.38],[105.35,33.50],[105.18,33.63],[104.95,33.62],[104.75,33.55],[104.65,33.52],[104.55,33.48],[104.48,33.30],[104.48,33.17]]},
-  { name:'文县',   lon:104.6827, lat:32.9438, area:'4994km²', pop:'24万', type:'县', color:'#00ffc8',
-    poly:[[104.35,32.68],[104.58,32.58],[104.72,32.58],[104.85,32.62],[105.02,32.78],[105.05,32.90],[104.95,33.10],[104.72,33.18],[104.48,33.08],[104.40,32.98],[104.35,32.88],[104.35,32.68]]},
-  { name:'宕昌县', lon:104.3924, lat:34.0477, area:'3331km²', pop:'29万', type:'县', color:'#ffd166',
-    poly:[[103.98,33.72],[104.18,33.60],[104.30,33.58],[104.42,33.62],[104.55,33.78],[104.55,33.90],[104.42,34.08],[104.30,34.12],[104.08,34.05],[104.00,33.95],[103.98,33.85],[103.98,33.72]]},
-  { name:'成县',   lon:105.7228, lat:33.7383, area:'1676km²', pop:'25万', type:'县', color:'#ff6b9d',
-    poly:[[105.50,33.55],[105.72,33.48],[105.85,33.52],[105.93,33.60],[105.95,33.72],[105.85,33.90],[105.75,33.95],[105.62,33.95],[105.52,33.90],[105.42,33.72],[105.50,33.55]]},
-  { name:'康县',   lon:105.6086, lat:33.3295, area:'2958km²', pop:'22万', type:'县', color:'#c77dff',
-    poly:[[105.35,33.10],[105.58,33.02],[105.70,33.05],[105.80,33.12],[105.85,33.22],[105.85,33.35],[105.70,33.52],[105.58,33.55],[105.45,33.52],[105.28,33.35],[105.28,33.22],[105.35,33.10]]},
-  { name:'西和县', lon:105.3001, lat:34.0140, area:'1861km²', pop:'36万', type:'县', color:'#06d6a0',
-    poly:[[104.98,33.82],[105.08,33.78],[105.20,33.75],[105.32,33.78],[105.40,33.85],[105.42,33.95],[105.40,34.05],[105.32,34.12],[105.08,34.12],[104.98,34.05],[104.92,33.95],[104.98,33.82]]},
-  { name:'礼县',   lon:105.1794, lat:34.1891, area:'4299km²', pop:'55万', type:'县', color:'#ffa94d',
-    poly:[[104.82,33.82],[104.92,33.78],[105.02,33.75],[105.25,33.85],[105.30,33.98],[105.30,34.10],[105.15,34.28],[105.02,34.30],[104.90,34.28],[104.75,34.08],[104.75,33.95],[104.82,33.82]]},
-  { name:'徽县',   lon:106.0880, lat:33.7696, area:'2722km²', pop:'24万', type:'县', color:'#4ecdc4',
-    poly:[[105.88,33.72],[106.08,33.65],[106.20,33.68],[106.28,33.75],[106.30,33.85],[106.22,34.02],[106.10,34.05],[105.98,34.02],[105.90,33.95],[105.85,33.85],[105.88,33.72]]},
-  { name:'两当县', lon:106.3051, lat:33.9090, area:'1408km²', pop:'5万',  type:'县', color:'#ff9f1c',
-    poly:[[106.12,33.82],[106.32,33.75],[106.42,33.78],[106.50,33.85],[106.48,34.05],[106.28,34.15],[106.18,34.12],[106.10,34.05],[106.08,33.88],[106.12,33.82]]},
+// ── 粒子 ─────────────────────────────────────────────
+(()=>{
+  const c=document.getElementById('particles');
+  const cols=['rgba(0,200,255,.6)','rgba(0,255,179,.5)','rgba(123,97,255,.4)'];
+  const count=perfState.low?8:22;
+  for(let i=0;i<count;i++){
+    const p=document.createElement('div'); p.className='pt';
+    const s=Math.random()*3+1;
+    p.style.cssText=`width:${s}px;height:${s}px;left:${Math.random()*100}%;
+      background:${cols[i%3]};animation-duration:${Math.random()*12+8}s;
+      animation-delay:${Math.random()*10}s;
+      box-shadow:0 0 ${s*3}px ${cols[i%3]};`;
+    c.appendChild(p);
+  }
+})();
+
+// ── 数据 ─────────────────────────────────────────────
+const TDT_KEY='216175d2f188a79b163c0a55e2d073dc';
+const COUNTIES=[
+  {name:'武都区',lon:104.9236,lat:33.3922,area:'4683km²',pop:'55万',farm:'42.3',type:'市辖区',color:'#00c8ff',
+   poly:[[104.48,33.17],[104.72,33.02],[105.05,33.12],[105.35,33.28],[105.38,33.38],[105.18,33.63],[104.95,33.62],[104.65,33.52],[104.48,33.30],[104.48,33.17]]},
+  {name:'文县',lon:104.6827,lat:32.9438,area:'4994km²',pop:'24万',farm:'18.7',type:'县',color:'#00ffb3',
+   poly:[[104.35,32.68],[104.72,32.58],[105.05,32.90],[104.95,33.10],[104.72,33.18],[104.48,33.08],[104.35,32.88],[104.35,32.68]]},
+  {name:'宕昌县',lon:104.3924,lat:34.0477,area:'3331km²',pop:'29万',farm:'22.1',type:'县',color:'#ffd166',
+   poly:[[103.98,33.72],[104.18,33.60],[104.42,33.62],[104.55,33.78],[104.55,34.00],[104.30,34.12],[104.08,34.05],[103.98,33.85],[103.98,33.72]]},
+  {name:'成县',lon:105.7228,lat:33.7383,area:'1676km²',pop:'25万',farm:'19.5',type:'县',color:'#ff6b9d',
+   poly:[[105.50,33.55],[105.72,33.48],[105.93,33.60],[105.95,33.72],[105.75,33.95],[105.52,33.90],[105.42,33.72],[105.50,33.55]]},
+  {name:'康县',lon:105.6086,lat:33.3295,area:'2958km²',pop:'22万',farm:'15.2',type:'县',color:'#c77dff',
+   poly:[[105.35,33.10],[105.58,33.02],[105.80,33.12],[105.85,33.35],[105.70,33.52],[105.45,33.52],[105.28,33.35],[105.35,33.10]]},
+  {name:'西和县',lon:105.3001,lat:34.0140,area:'1861km²',pop:'36万',farm:'28.4',type:'县',color:'#06d6a0',
+   poly:[[104.98,33.82],[105.20,33.75],[105.40,33.85],[105.42,33.95],[105.32,34.12],[105.08,34.12],[104.92,33.95],[104.98,33.82]]},
+  {name:'礼县',lon:105.1794,lat:34.1891,area:'4299km²',pop:'55万',farm:'38.6',type:'县',color:'#ffa94d',
+   poly:[[104.82,33.82],[105.02,33.75],[105.25,33.85],[105.30,34.10],[105.15,34.28],[104.90,34.28],[104.75,34.08],[104.82,33.82]]},
+  {name:'徽县',lon:106.0880,lat:33.7696,area:'2722km²',pop:'24万',farm:'20.3',type:'县',color:'#4ecdc4',
+   poly:[[105.88,33.72],[106.08,33.65],[106.28,33.75],[106.30,33.95],[106.10,34.05],[105.90,33.95],[105.85,33.78],[105.88,33.72]]},
+  {name:'两当县',lon:106.3051,lat:33.9090,area:'1408km²',pop:'5万',farm:'6.8',type:'县',color:'#ff9f1c',
+   poly:[[106.12,33.82],[106.32,33.75],[106.50,33.85],[106.48,34.05],[106.28,34.15],[106.10,34.05],[106.08,33.88],[106.12,33.82]]},
+];
+const ALERTS=[
+  {lv:'red', txt:'礼县北部疑似违法占地，面积约3.2亩',time:'10分钟前'},
+  {lv:'gold',txt:'武都区白龙江沿岸地质灾害风险预警',time:'32分钟前'},
+  {lv:'gold',txt:'成县农田保护区边界变动检测预警',time:'1小时前'},
+];
+const FEATURE_CATALOG=[
+  {module:'基础引擎',groups:[
+    {name:'二三维一体化GIS引擎',items:[
+      {name:'二三维联动',desc:'支持二维地图与三维场景双向实时联动；二维缩放/平移驱动三维摄像机；三维漫游同步更新二维鹰眼范围',priority:'必须',status:'演示',action:'toggle2d3d'},
+      {name:'坐标拾取与定位',desc:'鼠标拾取场景点位输出WGS84/CGCS2000坐标；手动输入经纬度快速定位，视角跳转高亮标记',priority:'必须',status:'演示',action:'coords'},
+      {name:'空间测量',desc:'空间距离、贴地距离、水平距离、高度、面积、三角高度、方位角等8类测量',priority:'必须',status:'演示',action:'open:measure'},
+      {name:'视点书签',desc:'保存三维视角为书签；书签列表管理、一键跳转、编辑删除、置顶常用',priority:'必须'},
+      {name:'三维标绘',desc:'基础/三维模型/特定标准/音视频/特色5大类标绘；图上标注保存复用',priority:'必须'},
+      {name:'图层控制',desc:'多图层叠加、显隐切换、透明度调节、图层渲染顺序拖拽排序',priority:'必须',status:'已接入',action:'layer'},
+      {name:'天空/光照环境',desc:'星空/蓝天/黄昏天空盒切换；光照强度与时间设置；阴影显隐控制',priority:'重要'},
+      {name:'路径漫游',desc:'自定义绘制漫游路线，三维自动飞行漫游，速度/视角可调',priority:'必须'},
+      {name:'卷帘/分屏比对',desc:'多图层/多时相数据交互式卷帘对比；双屏/四屏同步浏览；适用时序变化分析',priority:'必须'},
+      {name:'全景影像',desc:'三维场景中加载球型全景影像，支持360°漫游，关联空间位置',priority:'重要'},
+      {name:'倾斜压平/模型裁切',desc:'对倾斜摄影模型做压平处理；支持模型裁切展示内部结构',priority:'重要'},
+      {name:'粒子特效',desc:'雨/雪/雾/火焰/水流等动态粒子效果，参数可自定义',priority:'一般',status:'演示'}
+    ]}
+  ]},
+  {module:'数据综合管理',groups:[
+    {name:'数据管理',items:[
+      {name:'矢量数据上传',desc:'支持ShapeFile/GDB/CSV批量上传；自动识别坐标系和字段结构；上传进度实时显示',priority:'必须'},
+      {name:'栅格数据上传',desc:'支持TIF/IMG地形/影像批量上传；自动生成快视图；多源多分辨率多时相管理',priority:'必须'},
+      {name:'三维数据上传',desc:'支持倾斜摄影(OSGB)、BIM(IFC)、激光点云(LAS)、全景影像等批量上传',priority:'必须'}
+    ]},
+    {name:'目录管理',items:[
+      {name:'多套目录体系创建',desc:'按数据类型/来源/专题建立多套独立目录树；增删改查；一套数据可挂接多套目录',priority:'必须'},
+      {name:'目录权限控制',desc:'对用户/角色分配细粒度目录访问权限；支持跨目录、单用户多目录权限设置',priority:'必须'},
+      {name:'目录元数据',desc:'目录节点配置元数据描述；支持按元数据关键字检索目录',priority:'重要'}
+    ]},
+    {name:'数据检索',items:[
+      {name:'属性查询',desc:'对空间图层属性字段进行单/多条件组合查询；结果分页展示，点击定位高亮',priority:'必须'},
+      {name:'空间查询',desc:'按绘制图形/行政区/Shape范围查询；支持相交/包含关系；缓冲距离设置',priority:'必须'},
+      {name:'复合查询',desc:'空间范围与属性条件组合查询；支持OGC标准服务；结果联动地图高亮',priority:'必须'},
+      {name:'地名地址查询',desc:'基于地名地址服务关键字检索；结果按匹配度排序；地图快速定位',priority:'必须'}
+    ]},
+    {name:'版本管理',items:[
+      {name:'数据版本记录',desc:'记录数据历次上传/更新的版本信息（时间/操作人/版本号）；支持版本对比查看',priority:'重要'},
+      {name:'版本回退',desc:'支持将数据回退到历史版本；回退操作留痕记录',priority:'重要'}
+    ]},
+    {name:'字典管理',items:[
+      {name:'数据字典维护',desc:'行政区划/地类代码/坐标系等公共字典值增删改查与关键字检索',priority:'必须'},
+      {name:'字段字典映射',desc:'配置资源字段别名、展示字段、排序字段、数据字典映射关系',priority:'必须'}
+    ]},
+    {name:'元数据管理',items:[
+      {name:'元数据录入与解析',desc:'结构化录入元数据（来源/精度/时态/路径）；自动解析栅格数据元数据',priority:'必须'},
+      {name:'元数据检索',desc:'基于元数据字段快速检索数据资源；支持多条件组合过滤',priority:'必须'},
+      {name:'元数据关联',desc:'建立元数据与数据文件绑定关系；元数据变更自动同步',priority:'必须'}
+    ]},
+    {name:'专题查询展示',items:[
+      {name:'土地利用变化对比',desc:'对比不同年份土地利用现状，分析地类变化量、变化方向与流向趋势',priority:'必须'},
+      {name:'专题数据统计',desc:'按行政区/年份/专题/类型统计数据量；列表/饼图/柱图/折线图多形式展示',priority:'必须'},
+      {name:'数据资源统计',desc:'实时统计各类数据资源数量与体量；反映当前资源全貌',priority:'必须'}
+    ]},
+    {name:'数据申请',items:[
+      {name:'受限数据申请',desc:'对受限数据在线申请授权；填写用途和使用周期；自动流转管理员审核',priority:'必须'},
+      {name:'申请状态跟踪',desc:'申请状态实时展示（待审核/通过/驳回）；审核通过后权限自动生效；到期提醒与续期',priority:'必须'}
+    ]},
+    {name:'图层配置管理',items:[
+      {name:'符号样式配置',desc:'上传/管理渲染样式文件(SLD/MapboxStyle)；支持图层动态样式配置',priority:'必须'},
+      {name:'图层字段配置',desc:'配置图层展示字段、别名、排序字段、弹窗字段；控制前端呈现方式',priority:'必须'}
+    ]}
+  ]},
+  {module:'视频接入管理',groups:[
+    {name:'摄像头管理',items:[
+      {name:'摄像头批量/单个接入',desc:'支持Excel模板批量导入摄像头（名称/类型/IP/端口/坐标）；支持单个精细接入',priority:'必须'},
+      {name:'摄像头一张图展示',desc:'以GIS地图形式展示摄像头空间分布；支持定位查看、视频调取',priority:'必须'},
+      {name:'摄像头查询与监测',desc:'按名称/区域/品牌/网络状态查询；实时在线/离线状态监测',priority:'必须'}
+    ]},
+    {name:'播放器',items:[
+      {name:'无插件视频播放',desc:'浏览器无插件播放实时视频流；支持快速集成至任意业务系统',priority:'必须'},
+      {name:'多路视频显示',desc:'多路视频同时显示；快速放大缩小切换；画面抓图功能',priority:'必须'}
+    ]},
+    {name:'操作工具',items:[
+      {name:'云台控制',desc:'对球机摄像头远程云台操作（360°旋转/变焦/守望预置点）；实时控制响应',priority:'必须'},
+      {name:'视频转流',desc:'RTMP/UDP等协议转换为HLS/WebRTC；支持码率分辨率调整；视频自主可控',priority:'必须'}
+    ]}
+  ]},
+  {module:'任务调度与数据同步管理',groups:[
+    {name:'任务调度管理',items:[
+      {name:'采集任务管理',desc:'创建/编辑/删除采集项目与任务；配置脚本/元数据/执行周期(Cron)；定时与手动触发',priority:'必须'},
+      {name:'提取任务管理',desc:'从采集项目选择数据源，配置提取目标数据库；支持脚本执行',priority:'必须'},
+      {name:'执行台账监控',desc:'展示任务执行详情（名称/时间/记录数/状态/耗时）；支持日志查看与问题排查',priority:'必须'},
+      {name:'脚本库管理',desc:'采集/提取脚本上传、预览、编辑、下载、删除；目录分类管理',priority:'必须'}
+    ]},
+    {name:'数据同步管理',items:[
+      {name:'内外网同步方案',desc:'配置文件同步/数据库同步方案；设置内外网目录和数据库连接参数；测试连通性',priority:'必须'},
+      {name:'同步任务监控',desc:'实时展示同步状态（文件大小/进度/推送状态）；历史记录查询；异常告警',priority:'必须'}
+    ]}
+  ]},
+  {module:'数据工具',groups:[
+    {name:'三维轻量化工具',items:[
+      {name:'三维数据轻量化处理',desc:'支持OSGB/OBJ/LAS/IFC批量导入；自动LOD分级/纹理压缩/Draco压缩；输出3DTiles；压缩率≥50%',priority:'必须'},
+      {name:'质量检验',desc:'视觉效果检验（几何无破损/纹理清晰）；精度检验（地形≤2m/城区≤0.05m）；Web端≥25FPS',priority:'必须'}
+    ]},
+    {name:'坐标转换',items:[
+      {name:'批量坐标转换',desc:'批量将非标准坐标系矢量/影像数据转换为CGCS2000+1985国家高程基准',priority:'必须'}
+    ]},
+    {name:'配图制图',items:[
+      {name:'符号库/字体库制作',desc:'制作标准化符号库与字体库；配置图层颜色分级/标注样式；专题图定制',priority:'必须'},
+      {name:'专题图导出',desc:'专题图导出PNG/PDF；含图例/比例尺/指北针/元数据信息',priority:'重要'}
+    ]},
+    {name:'上传入库',items:[
+      {name:'多源数据批量入库',desc:'地形/影像/倾斜/BIM/精模/点云/矢量/全景等多源数据按类型批量入库；多终端并行操作',priority:'必须'},
+      {name:'入库日志记录',desc:'全程记录数据名称/格式/入库时间/路径/状态；支持数据溯源与问题排查',priority:'必须'},
+      {name:'元数据同步入库',desc:'元数据单独或与数据同步入库；自动建立元数据与数据关联关系',priority:'必须'}
+    ]},
+    {name:'服务管理',items:[
+      {name:'服务管理',desc:'数据工具中的服务管理功能与发布管理模块联动，详见发布管理章节',priority:'重要'}
+    ]}
+  ]},
+  {module:'发布管理',groups:[
+    {name:'服务发布',items:[
+      {name:'矢量服务发布',desc:'发布WMS/WFS/WMTS等OGC标准服务；支持多发布模式；自定义渲染样式与属性过滤',priority:'必须'},
+      {name:'影像服务发布',desc:'多波段高分辨率影像高效发布；透明色/渲染样式/切片方案配置；实时进度显示',priority:'必须'},
+      {name:'三维服务发布',desc:'3DTiles发布为OGC3DTiles标准服务；完整保留LOD/坐标/纹理/属性关联',priority:'必须'},
+      {name:'地名地址服务发布',desc:'发布地名地址服务；配置精确/模糊匹配字段；支持正向/逆向地理编码',priority:'必须'},
+      {name:'一套数据多套服务',desc:'基于同一数据通过不同样式/范围/过滤发布多套服务；服务添加版权水印',priority:'重要'}
+    ]},
+    {name:'服务更新',items:[
+      {name:'服务配置更新',desc:'已发布服务的渲染样式/范围/字段等配置在线更新，无需重新发布',priority:'必须'},
+      {name:'数据增量更新',desc:'底层数据更新后自动刷新服务缓存；保持服务数据最新状态',priority:'重要'}
+    ]},
+    {name:'服务删除',items:[
+      {name:'服务注销与删除',desc:'服务重命名、删除；删除前检查依赖关系并提示；操作留痕记录',priority:'必须'}
+    ]},
+    {name:'服务预览',items:[
+      {name:'服务在线预览',desc:'已发布服务在线预览（缩放/平移/漫游/全图）；显示服务实时状态（在线/离线）',priority:'必须'}
+    ]},
+    {name:'服务资源管理',items:[
+      {name:'外部服务注册',desc:'将外部OGC服务(WMS/WFS/WMTS)注册到平台统一管理；验证服务可用性',priority:'必须'},
+      {name:'服务目录组织',desc:'按服务类型/专题/发布单位组织服务目录；多维度分类检索展示',priority:'必须'}
+    ]},
+    {name:'服务审核',items:[
+      {name:'服务发布审核',desc:'数据经质检合格后提交发布审核；审核通过方可纳入共享目录；审核意见留痕',priority:'重要'},
+      {name:'审核流程管理',desc:'配置单级/多级审核流程；指定审核人员；超时自动催办',priority:'重要'}
+    ]},
+    {name:'服务操作',items:[
+      {name:'服务聚合',desc:'多类型OGC服务聚合为统一服务接口；支持多次聚合满足共享灵活性',priority:'重要'},
+      {name:'服务统计',desc:'按类型/专题/单位统计服务数量；访问热度排行（访问量/浏览次数）；可视化展示',priority:'重要'}
+    ]},
+    {name:'服务检索',items:[
+      {name:'关键字搜索',desc:'按服务名称/描述/类型/接口关键词实时搜索；结果按匹配度排序',priority:'必须'},
+      {name:'分类筛选',desc:'按服务类型（矢量/影像/三维/专题）、权限类别（公开/受限）多维度筛选',priority:'必须'}
+    ]},
+    {name:'服务申请',items:[
+      {name:'受限服务授权申请',desc:'无权限用户在线申请受限服务授权；填写用途和使用周期；申请状态实时跟踪',priority:'必须'},
+      {name:'权限到期管理',desc:'权限到期前自动提醒；到期后权限自动失效；支持一键续期申请',priority:'必须'}
+    ]}
+  ]},
+  {module:'统一集成门户',groups:[
+    {name:'统一登陆',items:[
+      {name:'单点登录SSO',desc:'一次登录访问所有授权应用系统；单点登出同步注销所有子系统会话',priority:'必须'},
+      {name:'统一应用门户',desc:'聚合所有接入业务系统入口；用户自定义应用排列与分组；支持收藏/设为常用',priority:'必须'},
+      {name:'统一待办与消息中心',desc:'聚合各子系统待审批事项与通知；一键跳转处理；重要消息推送提醒',priority:'重要'}
+    ]}
+  ]},
+  {module:'综合展示',groups:[
+    {name:'视图切换',items:[
+      {name:'二三维视图切换',desc:'2D平面地图与3D立体场景一键切换；视角自动适配当前浏览范围',priority:'必须',status:'已接入',action:'toggle2d3d'},
+      {name:'底图切换',desc:'卫星影像/矢量地图/地形图等多种底图切换；支持自定义底图服务接入',priority:'必须'}
+    ]},
+    {name:'图层控制',items:[
+      {name:'图层开关与透明度',desc:'多业务图层显示/隐藏切换；透明度0-100%连续调节；图层顺序拖拽调整',priority:'必须',status:'已接入',action:'layer'},
+      {name:'图层样式配置',desc:'在线调整图层颜色/线宽/点大小/标注等样式参数；实时预览；保存样式方案',priority:'必须'}
+    ]},
+    {name:'数据漫游',items:[
+      {name:'键盘/鼠标漫游',desc:'支持键盘方向键和鼠标拖拽漫游浏览；飞行动画到指定位置；速度可调',priority:'必须'},
+      {name:'视点漫游',desc:'基于预设视点位置自动生成漫游路径，按视角序列自动浏览三维场景',priority:'重要'}
+    ]},
+    {name:'信息检索',items:[
+      {name:'要素信息查询',desc:'点击地图要素弹出属性信息窗；自定义弹窗字段和样式；支持属性编辑',priority:'必须'},
+      {name:'地名搜索定位',desc:'输入地名/地址关键字快速检索并定位目标区域；支持行政区/POI搜索',priority:'必须'}
+    ]},
+    {name:'空间查询',items:[
+      {name:'图形范围查询',desc:'绘制点/线/面/圆图形范围，查询范围内的空间要素；支持相交/包含关系',priority:'必须'},
+      {name:'缓冲区查询',desc:'设置缓冲半径，查询缓冲区范围内的相关要素信息；结果高亮展示',priority:'必须'}
+    ]},
+    {name:'空间量测',items:[
+      {name:'距离/面积量测',desc:'贴地距离、水平距离、空间距离、贴地面积、水平面积等多类量测；结果可导出',priority:'必须',status:'演示',action:'open:measure'},
+      {name:'高度/方位量测',desc:'三角高度测量、建筑高度快速量测、两点方位角计算',priority:'必须'}
+    ]},
+    {name:'空间定位',items:[
+      {name:'坐标定位',desc:'手动输入经纬度（小数/度分秒格式）及海拔快速定位；目标自动居中显示',priority:'必须',status:'演示',action:'coords'},
+      {name:'行政区定位',desc:'按省/市/县行政区快速定位并缩放到对应范围；行政区下拉选择',priority:'必须',status:'演示',action:'flyHome'}
+    ]},
+    {name:'空间分析',items:[
+      {name:'日照分析',desc:'模拟指定时间段太阳光照效果，分析建筑群日照遮挡情况；支持时间动画回放',priority:'必须',status:'演示',action:'open:sun'},
+      {name:'通视分析',desc:'判断观察点与目标点可见性；障碍物位置可视化；支持多点批量通视分析',priority:'必须'},
+      {name:'水淹分析',desc:'绘制区域模拟洪水淹没动态过程；水位高程/涨水速度参数可设置',priority:'必须',status:'演示',action:'open:flood'},
+      {name:'坡度坡向分析',desc:'基于DEM生成坡度/坡向分级栅格；自定义分级阈值与颜色渲染',priority:'必须'},
+      {name:'剖面分析',desc:'创建剖切面切割三维场景，查看模型内部结构与地下空间；剖面截面可导出',priority:'必须'},
+      {name:'控高分析',desc:'设定高度阈值，高亮分析范围内超出控制高度的建筑；用于规划合规审查',priority:'必须'},
+      {name:'填挖方分析',desc:'绘制区域自动计算挖方/填方体积；输出方量数据报告',priority:'必须'},
+      {name:'等高线分析',desc:'在自定义区域自动生成等高线；可设置等高距；直观呈现地形起伏',priority:'必须'},
+      {name:'缓冲区分析',desc:'基于二维要素生成指定半径的三维缓冲区；叠加至三维场景展示影响范围',priority:'必须'},
+      {name:'路径分析',desc:'基于路网进行最短路径分析；三维场景中展示路径结果',priority:'必须'}
+    ]},
+    {name:'地图标绘',items:[
+      {name:'图上标绘',desc:'基础/三维模型/特定标准/音视频/特色5大类标绘；选择符号在地图标注',priority:'必须'},
+      {name:'标绘数据管理',desc:'标绘数据保存/加载/删除；按专题分组管理；支持导出KML/GeoJSON',priority:'必须'}
+    ]},
+    {name:'专题图制作',items:[
+      {name:'专题图配置',desc:'配置专题图的图层范围/样式分级/图例；自定义色带和分类方式',priority:'必须'},
+      {name:'专题图导出',desc:'导出为PNG/PDF格式；含图例/比例尺/指北针/元数据信息',priority:'必须'}
+    ]}
+  ]},
+  {module:'业务分析',groups:[
+    {name:'土地利用分析',items:[
+      {name:'土地利用现状分析',desc:'分析建设用地预审/审批/矿业权审批涉及的土地利用现状类型及各地类面积占比',priority:'必须'},
+      {name:'土地利用变化分析',desc:'对比不同年份土地利用数据，分析地类变化量、变化方向和流向趋势',priority:'必须'},
+      {name:'多因子压盖分析',desc:'配置多因子压盖分析方案（先行用地/建设用地预审/报批/工业园区等）；结果表格+图形联动展示',priority:'必须'},
+      {name:'采矿权/探矿权重合分析',desc:'检测建设项目与矿业权范围的空间重叠；重叠原则上不得批准',priority:'必须'},
+      {name:'空间冲突检测',desc:'配置自定义冲突检测规则；批量分析多图层间空间矛盾；输出冲突报告',priority:'必须'}
+    ]},
+    {name:'生态红线分析',items:[
+      {name:'永久基本农田压占',desc:'判断项目是否压占永久基本农田保护红线；输出压占面积/分布图',priority:'必须'},
+      {name:'生态保护红线压占',desc:'判断项目是否压占生态保护红线；为生态修复与规费计算提供依据',priority:'必须'},
+      {name:'城镇开发边界分析',desc:'判断项目是否在城镇开发边界内；分析边界符合性；为规划调整提供依据',priority:'必须'},
+      {name:'国土空间规划符合性分析',desc:'配置国土空间总体规划图层，分析项目是否符合规划要求',priority:'必须'}
+    ]}
+  ]},
+  {module:'运维管理',groups:[
+    {name:'系统管理',items:[
+      {name:'多级菜单配置',desc:'创建/维护多级菜单结构；菜单排序/启用/禁用；按角色动态分配可访问菜单',priority:'必须'},
+      {name:'用户增删改查',desc:'统一用户身份管理；用户信息维护（姓名/联系方式/所属部门）；状态管理',priority:'必须'},
+      {name:'用户导入导出',desc:'支持用户信息批量Excel导入/导出；密码重置功能',priority:'必须'},
+      {name:'组织机构管理',desc:'定义部门/单位组织架构树；支持新增/修改/注销；作为用户权限作用域基础',priority:'必须'},
+      {name:'角色定义与维护',desc:'定义角色权限集合；角色增删改查；功能权限与数据权限分离管理',priority:'必须'},
+      {name:'功能权限分配',desc:'菜单/按钮/接口级别权限管理；用户通过角色获得权限；支持权限继承',priority:'必须'},
+      {name:'数据权限管理',desc:'按组织架构/范围对用户可见数据过滤；防止越权访问',priority:'必须'},
+      {name:'应用系统授权',desc:'对接入第三方应用进行ClientID/Secret授权管理；配置授权范围和有效期',priority:'必须'}
+    ]},
+    {name:'安全管理',items:[
+      {name:'Token生命周期管理',desc:'管理用户登录Token的签发/刷新/吊销；在线用户列表查看；强制下线功能',priority:'必须'},
+      {name:'IP黑白名单',desc:'配置IP黑名单（禁止访问）和白名单（免认证访问）；支持IP段批量配置',priority:'必须'}
+    ]},
+    {name:'系统监控',items:[
+      {name:'操作日志查询',desc:'记录操作日志（日期/时间/用户/操作类型/结果）；多条件检索；日志导出',priority:'必须'},
+      {name:'登录日志',desc:'记录用户登录/登出行为（时间/IP/浏览器/结果）；异常登录告警',priority:'必须'},
+      {name:'数据库连接监控',desc:'监控数据库连接池状态（活跃/等待/最大连接数）；慢SQL识别与告警',priority:'必须'},
+      {name:'服务器资源监控',desc:'实时监控CPU/内存/磁盘使用率；历史趋势图表；资源告警阈值配置',priority:'必须'},
+      {name:'GIS服务运行监控',desc:'监控GeoServer等GIS服务的运行状态/响应时间/调用次数；异常自动告警',priority:'必须'}
+    ]},
+    {name:'系统配置',items:[
+      {name:'界面主题配置',desc:'平台视觉风格/色彩方案/组件样式自定义；内置多套预设主题；Logo/标题可定制',priority:'重要'},
+      {name:'缓存策略配置',desc:'配置Redis缓存的过期时间/容量/淘汰策略；支持手动清除指定缓存',priority:'必须'},
+      {name:'会话超时配置',desc:'配置用户登录会话超时时间；超时前提示续期；超时后自动跳转登录页',priority:'必须'}
+    ]},
+    {name:'数据统计',items:[
+      {name:'数据资源总量统计',desc:'按数据类型/行政区/时态统计数据总量；实时更新展示数据资源全貌',priority:'必须'},
+      {name:'服务发布数量统计',desc:'按服务类型/发布单位统计已发布服务数量；服务可用率；访问量趋势分析',priority:'必须'},
+      {name:'数字资产台账',desc:'统计平台管理的数字资产（数据文件/服务/场景）数量与存储体量',priority:'重要'},
+      {name:'资源使用情况分析',desc:'统计各类资源访问量/下载量/申请量；识别高频使用资源；用户活跃度分析',priority:'重要'}
+    ]}
+  ]},
+  {module:'接口集成',groups:[
+    {name:'内部接口',items:[
+      {name:'模块间数据共享',desc:'三维可视化/数据管理/业务分析等模块间数据无缝共享；统一数据总线',priority:'必须'},
+      {name:'事件驱动联动',desc:'数据更新/任务完成等事件触发相关模块自动刷新；保证模块间数据一致性',priority:'必须'}
+    ]},
+    {name:'内部接口定制',items:[
+      {name:'业务接口定制开发',desc:'根据自然资源业务需求定制内部API接口；提供完整接口文档（地址/参数/示例/结果）',priority:'必须'},
+      {name:'接口版本管理',desc:'接口版本控制；旧版本接口平滑迁移；接口变更通知机制',priority:'重要'}
+    ]},
+    {name:'外部接口',items:[
+      {name:'无人机影像数据接入',desc:'接入无人机航飞影像数据(DOM/DSM/点云/倾斜摄影)；自动触发数据处理入库流程',priority:'必须'},
+      {name:'飞行计划管理',desc:'记录无人机飞行计划与航次信息；与数据成果关联；飞行区域空间管理',priority:'重要'},
+      {name:'卫星遥感影像接入',desc:'接入卫星统筹DOM/高分辨率遥感影像；支持多时相管理与自动更新',priority:'必须'},
+      {name:'影像自动处理',desc:'影像接入后自动触发坐标转换/色彩均衡/切片发布等标准化处理流程',priority:'重要'},
+      {name:'视频监控平台对接',desc:'对接已有视频监控平台（大华/海康等）；统一管理视频资源；避免重复建设',priority:'必须'},
+      {name:'视频GIS融合',desc:'视频监控点位叠加在GIS地图上展示；点击地图点位直接调取视频流',priority:'必须'}
+    ]}
+  ]}
 ];
 
-// ── Cesium 初始化（禁用 Ion，避免 token 报错）──────────
-Cesium.Ion.defaultAccessToken = undefined;
-
-// 天地图影像
-const imgProvider = new Cesium.WebMapTileServiceImageryProvider({
-  url: 'https://t{s}.tianditu.gov.cn/img_w/wmts?tk=' + TDT_KEY,
-  layer: 'img', style: 'default', format: 'tiles',
-  tileMatrixSetID: 'w',
-  subdomains: ['0','1','2','3','4','5','6','7'],
-  maximumLevel: 18,
-  credit: new Cesium.Credit('天地图'),
-});
-
-// 天地图汉字注记
-const ciaProvider = new Cesium.WebMapTileServiceImageryProvider({
-  url: 'https://t{s}.tianditu.gov.cn/cia_w/wmts?tk=' + TDT_KEY,
-  layer: 'cia', style: 'default', format: 'tiles',
-  tileMatrixSetID: 'w',
-  subdomains: ['0','1','2','3','4','5','6','7'],
-  maximumLevel: 18,
-  credit: new Cesium.Credit('天地图注记'),
-});
-
-// 使用 ArcGIS 地形（公开免费，无需 token）
-const terrainProvider = new Cesium.ArcGISTiledElevationTerrainProvider({
-  url: 'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer',
-});
-
-const viewer = new Cesium.Viewer('cesiumContainer', {
-  imageryProvider: imgProvider,
-  terrainProvider: terrainProvider,
-  animation: false,
-  baseLayerPicker: false,
-  fullscreenButton: false,
-  geocoder: false,
-  homeButton: false,
-  infoBox: false,
-  sceneModePicker: false,
-  selectionIndicator: false,
-  timeline: false,
-  navigationHelpButton: false,
-  navigationInstructionsInitiallyVisible: false,
-  creditContainer: document.createElement('div'),
-  shadows: false,
-});
-
-// 加天地图注记层
-const annoLayer = viewer.imageryLayers.addImageryProvider(ciaProvider);
-
-// 开启深度检测（让边界线贴地）
-viewer.scene.globe.depthTestAgainstTerrain = true;
-
-// 大气
-viewer.scene.skyAtmosphere.show = true;
-viewer.scene.fog.enabled = true;
-viewer.scene.fog.density = 0.00015;
-
-// ── 图层引用 ──────────────────────────────────────────
-const satLayer = viewer.imageryLayers.get(0);
-const layerMap = { satellite: satLayer, annotation: annoLayer };
-const boundaryEntities = [];
-const labelEntities = [];
-
-// ── 绘制边界 ──────────────────────────────────────────
-COUNTIES.forEach(county => {
-  // 边界线（贴地）
-  const positions = county.poly.map(c => Cesium.Cartesian3.fromDegrees(c[0], c[1]));
-  const line = viewer.entities.add({
-    polyline: {
-      positions,
-      width: 2.5,
-      material: new Cesium.PolylineGlowMaterialProperty({
-        glowPower: 0.25,
-        color: Cesium.Color.fromCssColorString(county.color).withAlpha(0.95),
-      }),
-      clampToGround: true,
-    }
-  });
-
-  // 填充面
-  const fill = viewer.entities.add({
-    polygon: {
-      hierarchy: new Cesium.PolygonHierarchy(
-        county.poly.map(c => Cesium.Cartesian3.fromDegrees(c[0], c[1]))
-      ),
-      material: Cesium.Color.fromCssColorString(county.color).withAlpha(0.07),
-      outline: false,
-      heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-      classificationType: Cesium.ClassificationType.TERRAIN,
-    }
-  });
-
-  boundaryEntities.push(line, fill);
-
-  // 标注
-  const label = viewer.entities.add({
-    position: Cesium.Cartesian3.fromDegrees(county.lon, county.lat, 500),
-    label: {
-      text: county.name,
-      font: 'bold 14px "Microsoft YaHei",sans-serif',
-      fillColor: Cesium.Color.fromCssColorString(county.color),
-      outlineColor: Cesium.Color.fromCssColorString('#000000'),
-      outlineWidth: 3,
-      style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-      verticalOrigin: Cesium.VerticalOrigin.CENTER,
-      horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
-      disableDepthTestDistance: Number.POSITIVE_INFINITY,
-      heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
-      pixelOffset: new Cesium.Cartesian2(0, -16),
-    },
-    point: {
-      pixelSize: 7,
-      color: Cesium.Color.fromCssColorString(county.color),
-      outlineColor: Cesium.Color.WHITE,
-      outlineWidth: 2,
-      disableDepthTestDistance: Number.POSITIVE_INFINITY,
-      heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-    },
-    description: JSON.stringify(county),
-  });
-
-  labelEntities.push(label);
-});
-
-// ── 县区列表 ──────────────────────────────────────────
-const listEl = document.getElementById('county-list');
-COUNTIES.forEach((c, i) => {
-  const row = document.createElement('div');
-  row.className = 'county-row';
-  row.innerHTML = `
-    <div class="county-bar" style="background:${c.color}"></div>
-    <span class="county-name">${c.name}</span>
-    <span class="county-area">${c.area}</span>`;
-  row.onclick = () => flyToCounty(i);
-  listEl.appendChild(row);
-});
-
-// ── 飞行函数 ──────────────────────────────────────────
-function flyHome() {
-  viewer.camera.flyTo({
-    destination: Cesium.Cartesian3.fromDegrees(105.06, 33.50, 300000),
-    orientation: { heading:0, pitch: Cesium.Math.toRadians(-50), roll:0 },
-    duration: 2.5,
-  });
-  closePopup();
+function getPriorityClass(p){
+  if(p==='必须')return 'must';
+  if(p==='重要')return 'important';
+  return 'normal';
 }
-flyHome();
-
-function flyToCounty(idx) {
-  const c = COUNTIES[idx];
-  viewer.camera.flyTo({
-    destination: Cesium.Cartesian3.fromDegrees(c.lon, c.lat, 55000),
-    orientation: { heading:0, pitch: Cesium.Math.toRadians(-42), roll:0 },
-    duration: 2,
+function getStatus(item){
+  return item.status|| (item.action?'演示':'入口');
+}
+function getStatusClass(status){
+  if(status==='已接入')return 'status-ready';
+  if(status==='演示')return 'status-demo';
+  return 'status-entry';
+}
+function buildFeatureList(keyword){
+  const kw=(keyword||'').trim().toLowerCase();
+  let html='';
+  (FEATURE_CATALOG||[]).forEach(mod=>{
+    let modHtml='';
+    (mod.groups||[]).forEach(group=>{
+      const items=(group.items||[]).filter(it=>{
+        const text=(mod.module+group.name+it.name+(it.desc||'')).toLowerCase();
+        return !kw||text.includes(kw);
+      });
+      if(!items.length)return;
+      const itemsHtml=items.map(it=>{
+        const status=getStatus(it);
+        const action=it.action||'';
+        return `<div class="feature-item" data-action="${action}" data-status="${status}">
+          <div class="feature-main">
+            <div class="feature-name">${it.name}</div>
+            <div class="feature-desc">${it.desc}</div>
+          </div>
+          <div class="feature-meta">
+            <span class="tag ${getPriorityClass(it.priority)}">${it.priority}</span>
+            <span class="tag ${getStatusClass(status)}">${status}</span>
+          </div>
+        </div>`;
+      }).join('');
+      modHtml+=`<div class="feature-group"><div class="feature-group-title">${group.name}</div>${itemsHtml}</div>`;
+    });
+    if(modHtml){
+      html+=`<div class="feature-section"><div class="feature-section-title">${mod.module}</div>${modHtml}</div>`;
+    }
   });
+  return html||'<div class="hint warn">未匹配到相关功能</div>';
+}
+function bindFeatureItems(){
+  document.querySelectorAll('.feature-item').forEach(el=>{
+    el.onclick=()=>{
+      const action=el.getAttribute('data-action');
+      const status=el.getAttribute('data-status');
+      if(!action){
+        showToast(status==='入口'?'该功能为演示入口，正在规划':'该功能暂未接入');
+        return;
+      }
+      runFeatureAction(action);
+    };
+  });
+}
+function openMode(mode){
+  const btn=document.getElementById('btn-'+mode);
+  if(btn){openDrawer(mode,btn);return;}
+  showToast('入口未就绪');
+}
+function runFeatureAction(action){
+  if(action==='open:sun')return openMode('sun');
+  if(action==='open:flood')return openMode('flood');
+  if(action==='open:measure')return openMode('measure');
+  if(action==='open:fence')return openMode('fence');
+  if(action==='toggle2d3d'){
+    const btn=document.getElementById('btn-2d3d');
+    if(btn)return toggle2D3D(btn);
+    return showToast('入口未就绪');
+  }
+  if(action==='flyHome')return flyHome();
+  if(action==='layer')return showToast('请使用左侧图层控制');
+  if(action==='coords')return showToast('移动鼠标查看坐标，或点击县区列表定位');
+  showToast('该功能为演示入口，正在规划');
+}
+function renderFeaturesDrawer(){
+  safeRun(()=>{
+    const body=document.getElementById('drawer-body');
+    if(!body)return;
+    body.innerHTML=`
+      <div class="hint">功能中心提供演示入口与规划列表，已接入功能可直接进入演示。</div>
+      <div class="feature-search">
+        <input id="feature-key" class="feature-input" placeholder="搜索功能名称或说明">
+        <button id="feature-clear" class="feature-clear">清空</button>
+      </div>
+      <div id="feature-list" class="feature-list"></div>`;
+    const input=document.getElementById('feature-key');
+    const clear=document.getElementById('feature-clear');
+    const render=(kw)=>{
+      const list=document.getElementById('feature-list');
+      if(!list)return;
+      list.innerHTML=buildFeatureList(kw);
+      bindFeatureItems();
+    };
+    if(input)input.addEventListener('input',()=>render(input.value));
+    if(clear)clear.onclick=()=>{
+      if(input)input.value='';
+      render('');
+    };
+    render('');
+  });
+}
+
+// 预警列表
+const alEl=document.getElementById('alert-list');
+const alColors={red:'#ff3d5a',gold:'#ffcc44'};
+ALERTS.forEach(a=>{
+  alEl.innerHTML+=`<div class="al-item">
+    <div class="al-dot" style="background:${alColors[a.lv]};box-shadow:0 0 5px ${alColors[a.lv]}"></div>
+    <div><div class="al-txt">${a.txt}</div><div class="al-time">${a.time}</div></div>
+  </div>`;
+});
+
+// ── Cesium ──────────────────────────────────────────
+try{
+  if(!window.Cesium)throw new Error('Cesium未加载');
+  Cesium.Ion.defaultAccessToken=undefined;
+  terrainProvider=new Cesium.ArcGISTiledElevationTerrainProvider({
+    url:'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer',
+  });
+  viewer=new Cesium.Viewer('cesiumContainer',{
+    imageryProvider:new Cesium.WebMapTileServiceImageryProvider({
+      url:'https://t{s}.tianditu.gov.cn/img_w/wmts?tk='+TDT_KEY,
+      layer:'img',style:'default',format:'tiles',tileMatrixSetID:'w',
+      subdomains:['0','1','2','3','4','5','6','7'],maximumLevel:18,
+      credit:new Cesium.Credit('天地图'),
+    }),
+    terrainProvider,
+    animation:false,baseLayerPicker:false,fullscreenButton:false,
+    geocoder:false,homeButton:false,infoBox:false,sceneModePicker:false,
+    selectionIndicator:false,timeline:false,navigationHelpButton:false,
+    creditContainer:document.createElement('div'),shadows:false,
+  });
+  annoLayer=viewer.imageryLayers.addImageryProvider(
+    new Cesium.WebMapTileServiceImageryProvider({
+      url:'https://t{s}.tianditu.gov.cn/cia_w/wmts?tk='+TDT_KEY,
+      layer:'cia',style:'default',format:'tiles',tileMatrixSetID:'w',
+      subdomains:['0','1','2','3','4','5','6','7'],maximumLevel:18,
+    })
+  );
+  viewer.scene.globe.depthTestAgainstTerrain=true;
+  viewer.scene.skyAtmosphere.show=true;
+  viewer.scene.fog.enabled=true;
+  viewer.scene.fog.density=0.00015;
+  satLayer=viewer.imageryLayers.get(0);
+  cesiumReady=true;
+}catch(ex){
+  initError='三维引擎初始化失败，请检查网络或CDN';
+  showToast(initError);
+}
+applyPerfMode();
+const perfBtn=document.getElementById('perf-btn');
+if(perfBtn){
+  perfBtn.onclick=()=>{
+    perfState.low=!perfState.low;
+    applyPerfMode();
+  };
+}
+
+// ── 边界与标注 ───────────────────────────────────────
+const boundaryEnt=[],labelEnt=[];
+if(cesiumReady){
+  COUNTIES.forEach(c=>{
+    const pos=c.poly.map(p=>Cesium.Cartesian3.fromDegrees(p[0],p[1]));
+    boundaryEnt.push(viewer.entities.add({
+      polyline:{positions:pos,width:2.5,clampToGround:true,
+        material:new Cesium.PolylineGlowMaterialProperty({
+          glowPower:.25,color:Cesium.Color.fromCssColorString(c.color).withAlpha(.95)})}
+    }));
+    boundaryEnt.push(viewer.entities.add({
+      polygon:{
+        hierarchy:new Cesium.PolygonHierarchy(c.poly.map(p=>Cesium.Cartesian3.fromDegrees(p[0],p[1]))),
+        material:Cesium.Color.fromCssColorString(c.color).withAlpha(.07),
+        outline:false,heightReference:Cesium.HeightReference.CLAMP_TO_GROUND,
+      }
+    }));
+    const lbl=viewer.entities.add({
+      position:Cesium.Cartesian3.fromDegrees(c.lon,c.lat,500),
+      label:{text:c.name,font:'bold 14px "Microsoft YaHei"',
+        fillColor:Cesium.Color.fromCssColorString(c.color),
+        outlineColor:Cesium.Color.BLACK,outlineWidth:3,
+        style:Cesium.LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin:Cesium.VerticalOrigin.CENTER,
+        horizontalOrigin:Cesium.HorizontalOrigin.CENTER,
+        disableDepthTestDistance:Number.POSITIVE_INFINITY,
+        heightReference:Cesium.HeightReference.RELATIVE_TO_GROUND,
+        pixelOffset:new Cesium.Cartesian2(0,-14),
+      },
+      point:{pixelSize:7,color:Cesium.Color.fromCssColorString(c.color),
+        outlineColor:Cesium.Color.WHITE,outlineWidth:2,
+        disableDepthTestDistance:Number.POSITIVE_INFINITY,
+        heightReference:Cesium.HeightReference.CLAMP_TO_GROUND,
+      },
+      description:JSON.stringify(c),
+    });
+    labelEnt.push(lbl);
+  });
+}
+
+// ── 县区列表 ─────────────────────────────────────────
+const listEl=document.getElementById('county-list');
+COUNTIES.forEach((c,i)=>{
+  const r=document.createElement('div');
+  r.className='cr';r.id='cr'+i;
+  r.innerHTML=`<div class="cbar" style="background:${c.color}"></div>
+    <span class="cname">${c.name}</span><span class="carea">${c.area}</span>`;
+  r.onclick=()=>flyTo(i);
+  listEl.appendChild(r);
+});
+
+// 飞行 —— 用 lookAt 确保目标点在画面中心
+function flyHome(){
+  if(!ensureCesium())return;
+  const center = Cesium.Cartesian3.fromDegrees(105.06,33.48,0);
+  viewer.camera.flyToBoundingSphere(
+    new Cesium.BoundingSphere(center, 180000),
+    {duration:2.5, offset:new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-48), 280000)}
+  );
+  closePopup();
+  document.querySelectorAll('.cr').forEach(r=>r.classList.remove('sel'));
+}
+if(cesiumReady)flyHome();
+
+function flyTo(i){
+  if(!ensureCesium())return;
+  const c=COUNTIES[i];
+  const center = Cesium.Cartesian3.fromDegrees(c.lon, c.lat, 0);
+  viewer.camera.flyToBoundingSphere(
+    new Cesium.BoundingSphere(center, 28000),
+    {duration:2.2, offset:new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-45), 52000)}
+  );
+  document.querySelectorAll('.cr').forEach(r=>r.classList.remove('sel'));
+  document.getElementById('cr'+i).classList.add('sel');
   showPopup(c);
 }
 
-// ── 弹窗 ──────────────────────────────────────────────
-function showPopup(c) {
-  document.getElementById('popup-name').textContent = c.name;
-  document.getElementById('popup-name').style.color = c.color;
-  document.getElementById('popup-body').innerHTML = `
-    <div class="popup-row"><span class="popup-key">行政类型</span><span class="popup-val">${c.type}</span></div>
-    <div class="popup-row"><span class="popup-key">土地面积</span><span class="popup-val">${c.area}</span></div>
-    <div class="popup-row"><span class="popup-key">常住人口</span><span class="popup-val">${c.pop}</span></div>
-    <div class="popup-row"><span class="popup-key">中心经度</span><span class="popup-val">${c.lon}°E</span></div>
-    <div class="popup-row"><span class="popup-key">中心纬度</span><span class="popup-val">${c.lat}°N</span></div>
-    <div class="popup-row"><span class="popup-key">自然资源数据</span><span class="popup-val" style="color:var(--green)">● 已接入</span></div>`;
-  document.getElementById('popup').style.display = 'block';
+// 弹窗
+function showPopup(c){
+  document.getElementById('popup-name').textContent=c.name;
+  document.getElementById('popup-name').style.color=c.color;
+  document.getElementById('popup-body').innerHTML=`
+    <div class="pr"><span class="pk">行政类型</span><span class="pv">${c.type}</span></div>
+    <div class="pr"><span class="pk">土地面积</span><span class="pv">${c.area}</span></div>
+    <div class="pr"><span class="pk">常住人口</span><span class="pv">${c.pop}</span></div>
+    <div class="pr"><span class="pk">耕地面积</span><span class="pv">${c.farm}万亩</span></div>
+    <div class="pr"><span class="pk">坐标</span><span class="pv">${c.lon}°E,${c.lat}°N</span></div>
+    <div class="pr"><span class="pk">数据状态</span><span class="pv" style="color:var(--green)">● 已接入</span></div>`;
+  document.getElementById('popup').style.display='block';
 }
-function closePopup() { document.getElementById('popup').style.display = 'none'; }
+function closePopup(){document.getElementById('popup').style.display='none';}
 
-// 点击实体弹窗
-viewer.screenSpaceEventHandler.setInputAction(e => {
-  const picked = viewer.scene.pick(e.position);
-  if (Cesium.defined(picked) && Cesium.defined(picked.id) && picked.id.description) {
-    try {
-      const c = JSON.parse(picked.id.description.getValue());
-      if (c && c.name) showPopup(c);
-    } catch(e) {}
-  }
-}, Cesium.ScreenSpaceEventType.LEFT_CLICK);
-
-// ── 图层控制 ──────────────────────────────────────────
-function toggleLayer(name, el) {
+// 图层控制
+function toggleLayer(name,el){
+  if(!ensureCesium())return;
   el.classList.toggle('on');
-  const on = el.classList.contains('on');
-  if (name === 'boundary') boundaryEntities.forEach(e => e.show = on);
-  else if (name === 'labels') labelEntities.forEach(e => e.show = on);
-  else if (name === 'satellite') { satLayer.show = on; annoLayer.show = on; }
-  else if (name === 'terrain') {
-    viewer.scene.globe.depthTestAgainstTerrain = on;
-    if (!on) viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider();
-    else viewer.terrainProvider = terrainProvider;
+  const on=el.classList.contains('on');
+  if(name==='boundary')boundaryEnt.forEach(e=>e.show=on);
+  else if(name==='labels')labelEnt.forEach(e=>e.show=on);
+  else if(name==='satellite'){satLayer.show=on;annoLayer.show=on;}
+  else if(name==='terrain'){
+    viewer.terrainProvider=on?terrainProvider:new Cesium.EllipsoidTerrainProvider();
+    viewer.scene.globe.depthTestAgainstTerrain=on;
   }
 }
 
-// ── 二维/三维切换 ────────────────────────────────────
-let is3D = true;
-function toggle2D3D(btn) {
-  is3D = !is3D;
-  if (is3D) {
+// 二维切换
+let is3D=true;
+function toggle2D3D(btn){
+  if(!ensureCesium())return;
+  is3D=!is3D;
+  const badge=document.getElementById('dim-badge');
+  if(is3D){
     viewer.scene.morphTo3D(1.5);
-    btn.textContent = '⬜ 二维切换';
-    setTimeout(flyHome, 1800);
-  } else {
+    btn.textContent='⬜ 二维切换';
+    badge.textContent='三维 3D';
+    badge.style.borderColor='rgba(0,200,255,.4)';
+    badge.style.color='var(--accent)';
+    badge.style.background='rgba(0,200,255,.1)';
+    setTimeout(flyHome,1800);
+  }else{
     viewer.scene.morphTo2D(1.5);
-    btn.textContent = '🌐 三维切换';
+    btn.textContent='🌐 三维切换';
+    badge.textContent='二维 2D';
+    badge.style.borderColor='rgba(0,255,179,.4)';
+    badge.style.color='var(--a2)';
+    badge.style.background='rgba(0,255,179,.1)';
   }
+}
+
+// ── 抽屉面板 ─────────────────────────────────────────
+let floodEnt=null,floodTimer=null;
+let measureOn=false,measurePts=[],measureEnt=[],measureResults=[];
+let sunTimer=null;
+let fenceOn=false,fenceCartoPts=[],fenceEnt=[],fencePolyEnt=null,fenceLineEnt=null;
+
+
+function updateModeHUD(){
+  const hud=document.getElementById('mode-hud');
+  const name=document.getElementById('mode-name');
+  if(!hud||!name)return;
+  if(!currentMode){
+    hud.style.display='none';
+    return;
+  }
+  const map={
+    features:'🧩 功能中心已开启',
+    sun:'☀ 日照分析已开启',
+    flood:'🌊 水淹模拟已开启',
+    measure:'📏 距离量测已开启',
+    fence:'🔲 围栏面积已开启',
+  };
+  name.textContent=map[currentMode]||'模式已开启';
+  hud.style.display='flex';
+}
+
+const modeExit=document.getElementById('mode-exit');
+if(modeExit)modeExit.onclick=()=>closeDrawer();
+
+function openDrawer(mode,btn){
+  safeRun(()=>{
+    if(mode!=='features'&&!ensureCesium())return;
+    if(currentMode===mode){closeDrawer();return;}
+    cleanupAll();
+    currentMode=mode;
+    document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
+    if(btn&&btn.classList)btn.classList.add('on');
+    const drawer=document.getElementById('drawer');
+    const charts=document.getElementById('charts-bar');
+    const tips=document.getElementById('tips');
+    const hud=document.getElementById('mode-hud');
+    if(drawer)drawer.classList.add('open');
+    if(charts)charts.classList.add('shifted');
+    if(tips)tips.classList.add('shifted');
+    if(hud)hud.classList.add('shifted');
+    updateModeHUD();
+
+    if(mode==='features'){
+      const title=document.getElementById('drawer-title');
+      if(title)title.textContent='🧩 功能中心';
+      renderFeaturesDrawer();
+    }else if(mode==='sun'){
+      document.getElementById('drawer-title').textContent='☀ 日照分析';
+      renderSunDrawer();
+    }else if(mode==='flood'){
+      document.getElementById('drawer-title').textContent='🌊 水淹模拟';
+      renderFloodDrawer();
+    }else if(mode==='measure'){
+      document.getElementById('drawer-title').textContent='📏 距离量测';
+      renderMeasureDrawer();
+    }else if(mode==='fence'){
+      document.getElementById('drawer-title').textContent='🔲 围栏面积';
+      renderFenceDrawer();
+    }
+    applyPerfMode();
+  });
+}
+
+function closeDrawer(){
+  cleanupAll();
+  currentMode=null;
+  const drawer=document.getElementById('drawer');
+  const charts=document.getElementById('charts-bar');
+  const tips=document.getElementById('tips');
+  const hud=document.getElementById('mode-hud');
+  if(drawer)drawer.classList.remove('open');
+  if(charts)charts.classList.remove('shifted');
+  if(tips)tips.classList.remove('shifted');
+  if(hud)hud.classList.remove('shifted');
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
+  const body=document.getElementById('drawer-body');
+  if(body)body.innerHTML='';
+  updateModeHUD();
+  applyPerfMode();
+}
+
+function cleanupAll(){
+  if(!cesiumReady){
+    measureOn=false;
+    fenceOn=false;
+    return;
+  }
+  // 日照清理
+  clearInterval(sunTimer); sunTimer=null;
+  document.getElementById('sun-anim').style.display='none';
+  viewer.scene.globe.enableLighting=false;
+  viewer.shadows=false;
+  viewer.clock.shouldAnimate=false;
+  // 水淹清理
+  clearInterval(floodTimer); floodTimer=null;
+  if(floodEnt){viewer.entities.remove(floodEnt);floodEnt=null;}
+  document.getElementById('flood-info').style.display='none';
+  // 量测清理
+  measureOn=false;
+  measureEnt.forEach(e=>viewer.entities.remove(e));
+  measureEnt=[];measurePts=[];measureResults=[];
+  document.getElementById('measure-hud').style.display='none';
+  // 围栏清理
+  fenceOn=false;
+  fenceEnt.forEach(e=>viewer.entities.remove(e)); fenceEnt=[];
+  if(fencePolyEnt){viewer.entities.remove(fencePolyEnt);fencePolyEnt=null;}
+  if(fenceLineEnt){viewer.entities.remove(fenceLineEnt);fenceLineEnt=null;}
+  fenceCartoPts=[];
+  document.getElementById('fence-hud').style.display='none';
 }
 
 // ── 日照分析 ─────────────────────────────────────────
-let sunOn = false;
-function toggleSun(btn) {
-  sunOn = !sunOn;
-  btn.classList.toggle('active', sunOn);
-  viewer.scene.globe.enableLighting = sunOn;
-  viewer.shadows = sunOn;
-  if (sunOn) {
-    viewer.clock.currentTime = Cesium.JulianDate.fromDate(new Date('2024-12-22T04:00:00Z'));
-    viewer.clock.multiplier = 1800;
-    viewer.clock.shouldAnimate = true;
-  } else {
-    viewer.clock.shouldAnimate = false;
-    viewer.clock.multiplier = 1;
-  }
+const SUN_DATA={
+  冬至:{date:'2024-12-22',rise:'07:18',noon:'12:25',set:'17:32',hours:'10.2',
+       angle:'33°',shadow:'最长',desc:'日照时间最短，阴影最长，适合评估建筑遮挡'},
+  夏至:{date:'2024-06-21',rise:'05:48',noon:'12:35',set:'19:22',hours:'13.6',
+       angle:'76°',shadow:'最短',desc:'日照时间最长，太阳高度角最大，光热资源丰富'},
+  春分:{date:'2024-03-20',rise:'06:30',noon:'12:28',set:'18:26',hours:'12.0',
+       angle:'54°',shadow:'居中',desc:'昼夜等长，太阳从正东升起，从正西落下'},
+};
+let selSunDate=null;
+
+function renderSunDrawer(){
+  document.getElementById('drawer-body').innerHTML=`
+    <div class="hint">选择分析日期，系统将在地图上方展示太阳运行轨迹动画，并输出日照数据。</div>
+    <div class="steps">
+      <div class="step cur" id="ss1"><div class="sn">1</div>选择日期</div>
+      <div class="step" id="ss2"><div class="sn">2</div>运行模拟</div>
+      <div class="step" id="ss3"><div class="sn">3</div>查看结果</div>
+    </div>
+    <div class="btn-group">
+      <div class="opt-btn" onclick="selectSunDate('冬至',this)">❄️<br>冬至日<br>12月22日</div>
+      <div class="opt-btn" onclick="selectSunDate('夏至',this)">☀️<br>夏至日<br>6月21日</div>
+      <div class="opt-btn" onclick="selectSunDate('春分',this)">🌸<br>春分日<br>3月20日</div>
+    </div>
+    <div id="sun-run-area" style="display:none;">
+      <div class="prog-wrap">
+        <div class="prog-label"><span id="sun-prog-txt">准备分析...</span><span id="sun-pct">0%</span></div>
+        <div class="prog-bg"><div class="prog-fill" id="sun-fill"></div></div>
+      </div>
+    </div>
+    <div id="sun-result-area" style="display:none;"></div>`;
+}
+
+function selectSunDate(d,btn){
+  if(!ensureCesium())return;
+  selSunDate=d;
+  document.querySelectorAll('#drawer-body .opt-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  document.getElementById('ss1').classList.add('done');
+  document.getElementById('ss2').classList.add('cur');
+  document.getElementById('sun-run-area').style.display='block';
+  document.getElementById('sun-result-area').style.display='none';
+
+  // 飞到全市视角
+  viewer.camera.flyTo({
+    destination:Cesium.Cartesian3.fromDegrees(105.06,33.50,280000),
+    orientation:{heading:0,pitch:Cesium.Math.toRadians(-50),roll:0},duration:1.5,
+  });
+
+  // 显示太阳轨迹动画
+  document.getElementById('sun-anim').style.display='block';
+
+  // 启动 Cesium 日照（辅助）
+  viewer.scene.globe.enableLighting=true;
+  viewer.shadows=true;
+  const data=SUN_DATA[d];
+  viewer.clock.currentTime=Cesium.JulianDate.fromDate(new Date(data.date+'T04:00:00Z'));
+  viewer.clock.multiplier=1800;
+  viewer.clock.shouldAnimate=true;
+
+  // 进度条动画
+  let pct=0;
+  const steps=['解析日期参数...','计算太阳高度角...','模拟光照路径...','生成日照数据...','分析完成 ✓'];
+  let si=0;
+  clearInterval(sunTimer);
+  sunTimer=setInterval(()=>{
+    pct+=4;
+    document.getElementById('sun-pct').textContent=pct+'%';
+    document.getElementById('sun-fill').style.width=pct+'%';
+    if(pct%20===0&&si<steps.length){
+      document.getElementById('sun-prog-txt').textContent=steps[si++];
+    }
+    if(pct>=100){
+      clearInterval(sunTimer);
+      document.getElementById('ss2').classList.add('done');
+      document.getElementById('ss3').classList.add('cur');
+      showSunResult(d);
+    }
+  },60);
+}
+
+function showSunResult(d){
+  const r=SUN_DATA[d];
+  document.getElementById('sun-result-area').style.display='block';
+  document.getElementById('sun-result-area').innerHTML=`
+    <div class="hint" style="margin-bottom:10px;">
+      📌 ${r.desc}
+    </div>
+    <div class="res-grid col3">
+      <div class="ri"><div class="rv" style="font-size:16px;">${r.rise}</div><div class="rl">日出时间</div>
+        <div class="rbar" style="background:linear-gradient(90deg,#ff8800,#ffcc44)"></div></div>
+      <div class="ri"><div class="rv">${r.hours}h</div><div class="rl">有效日照时长</div>
+        <div class="rbar"></div></div>
+      <div class="ri"><div class="rv" style="font-size:16px;">${r.set}</div><div class="rl">日落时间</div>
+        <div class="rbar" style="background:linear-gradient(90deg,#ff6b9d,#c77dff)"></div></div>
+    </div>
+    <div class="res-grid" style="margin-top:8px;">
+      <div class="ri"><div class="rv">${r.angle}</div><div class="rl">正午太阳高度角</div>
+        <div class="rbar" style="background:linear-gradient(90deg,#ffcc44,#ff9f1c)"></div></div>
+      <div class="ri"><div class="rv">${r.shadow}</div><div class="rl">建筑阴影状态</div>
+        <div class="rbar" style="background:linear-gradient(90deg,#4ecdc4,#00c8ff)"></div></div>
+    </div>
+    <button class="run-btn" onclick="selectSunDate('${d}',document.querySelector('.opt-btn.sel'))">
+      🔄 重新模拟
+    </button>`;
 }
 
 // ── 水淹模拟 ─────────────────────────────────────────
-let floodOn = false;
-let floodEntity = null;
-let floodTimer = null;
-let floodH = 900;
+// 武都区白龙江河谷真实坐标范围（沿江低洼区）
+const FLOOD_ZONES={
+  860:{coords:[104.70,33.26,104.72,33.22,104.88,33.20,105.08,33.22,105.18,33.25,105.15,33.32,104.95,33.34,104.78,33.32,104.70,33.26],
+       h:860,area:'12.3',pop:'1.2',farm:'3400',color:'#1188ff'},
+  900:{coords:[104.65,33.28,104.68,33.18,104.85,33.15,105.12,33.18,105.25,33.22,105.22,33.38,104.98,33.42,104.75,33.38,104.65,33.28],
+       h:900,area:'38.7',pop:'4.8',farm:'12600',color:'#0066ee'},
+  950:{coords:[104.58,33.32,104.60,33.12,104.82,33.08,105.18,33.12,105.35,33.20,105.30,33.48,105.02,33.52,104.72,33.46,104.58,33.32],
+       h:950,area:'89.4',pop:'11.3',farm:'28000',color:'#0044cc'},
+};
 
-function toggleFlood(btn) {
-  floodOn = !floodOn;
-  btn.classList.toggle('active', floodOn);
-  if (floodOn) {
-    viewer.camera.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(104.92, 33.39, 35000),
-      orientation: { heading:0, pitch: Cesium.Math.toRadians(-38), roll:0 },
-      duration: 2,
-    });
-    floodH = 900;
-    setTimeout(() => {
-      floodEntity = viewer.entities.add({
-        polygon: {
-          hierarchy: new Cesium.PolygonHierarchy(
-            Cesium.Cartesian3.fromDegreesArray([
-              104.65,33.20, 105.25,33.20, 105.25,33.65, 104.65,33.65
-            ])
-          ),
-          extrudedHeight: floodH,
-          height: 860,
-          material: new Cesium.ColorMaterialProperty(
-            Cesium.Color.fromCssColorString('#1166ff').withAlpha(0.42)
-          ),
-        }
-      });
-      let rising = true;
-      floodTimer = setInterval(() => {
-        if (!floodEntity) return;
-        if (rising) { floodH += 3; if (floodH >= 980) rising = false; }
-        else        { floodH -= 3; if (floodH <= 900) rising = true; }
-        floodEntity.polygon.extrudedHeight = new Cesium.ConstantProperty(floodH);
-      }, 60);
-    }, 2200);
-  } else {
-    clearInterval(floodTimer);
-    if (floodEntity) { viewer.entities.remove(floodEntity); floodEntity = null; }
+function renderFloodDrawer(){
+  document.getElementById('drawer-body').innerHTML=`
+    <div class="hint">模拟白龙江流域洪涝淹没范围。选择水位后，地图上将显示对应的淹没区域（蓝色覆盖）。</div>
+    <div class="steps">
+      <div class="step cur" id="fs1"><div class="sn">1</div>选择水位</div>
+      <div class="step" id="fs2"><div class="sn">2</div>查看范围</div>
+      <div class="step" id="fs3"><div class="sn">3</div>影响评估</div>
+    </div>
+    <div class="btn-group">
+      <div class="opt-btn" onclick="startFlood(860,this)">
+        🟡<br><b>860m</b><br>警戒水位<br><span style="color:var(--green);font-size:10px">小范围</span>
+      </div>
+      <div class="opt-btn" onclick="startFlood(900,this)">
+        🟠<br><b>900m</b><br>一般洪水<br><span style="color:var(--gold);font-size:10px">中等范围</span>
+      </div>
+      <div class="opt-btn" onclick="startFlood(950,this)">
+        🔴<br><b>950m</b><br>百年一遇<br><span style="color:var(--red);font-size:10px">大范围</span>
+      </div>
+    </div>
+    <div id="flood-prog" style="display:none;">
+      <div class="prog-wrap">
+        <div class="prog-label"><span>正在计算淹没范围...</span><span id="fp-pct">0%</span></div>
+        <div class="prog-bg"><div class="prog-fill" id="fp-fill"></div></div>
+      </div>
+    </div>
+    <div id="flood-detail" style="display:none;"></div>`;
+}
+
+function startFlood(level,btn){
+  if(!ensureCesium())return;
+  document.querySelectorAll('#drawer-body .opt-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  document.getElementById('fs1').classList.add('done');
+  document.getElementById('fs2').classList.add('cur');
+
+  // 清除旧水体
+  clearInterval(floodTimer);
+  if(floodEnt){viewer.entities.remove(floodEnt);floodEnt=null;}
+
+  const zone=FLOOD_ZONES[level];
+
+  const coords=zone.coords;
+  const positions=[];
+  for(let i=0;i<coords.length;i+=2){
+    positions.push(Cesium.Cartesian3.fromDegrees(coords[i],coords[i+1],zone.h));
   }
+  const sphere=Cesium.BoundingSphere.fromPoints(positions);
+  viewer.camera.flyToBoundingSphere(
+    sphere,
+    {duration:2.2,offset:new Cesium.HeadingPitchRange(0,Cesium.Math.toRadians(-45),Math.max(25000,sphere.radius*2.5))}
+  );
+
+  // 进度条
+  document.getElementById('flood-prog').style.display='block';
+  document.getElementById('flood-detail').style.display='none';
+  let pct=0;
+  const pt=setInterval(()=>{
+    pct+=5;
+    document.getElementById('fp-pct').textContent=pct+'%';
+    document.getElementById('fp-fill').style.width=pct+'%';
+    if(pct>=100){
+      clearInterval(pt);
+      showFloodOnMap(zone,level);
+    }
+  },40);
+}
+
+function showFloodOnMap(zone,level){
+  if(!ensureCesium())return;
+  document.getElementById('fs2').classList.add('done');
+  document.getElementById('fs3').classList.add('cur');
+
+  // 创建水体（贴地面 + 略微抬高，确保可见）
+  const coords=zone.coords;
+  const degArray=[];
+  for(let i=0;i<coords.length;i+=2)degArray.push(coords[i],coords[i+1]);
+
+  floodEnt=viewer.entities.add({
+    polygon:{
+      hierarchy:new Cesium.PolygonHierarchy(
+        Cesium.Cartesian3.fromDegreesArray(degArray)
+      ),
+      // 不使用 extrudedHeight，改用 height 贴地面显示
+      height:820,
+      extrudedHeight:zone.h,
+      material:new Cesium.ColorMaterialProperty(
+        Cesium.Color.fromCssColorString(zone.color).withAlpha(0.55)
+      ),
+      outline:true,
+      outlineColor:Cesium.Color.fromCssColorString('#88ccff').withAlpha(0.8),
+      outlineWidth:2,
+    }
+  });
+
+  // 水位波动动画
+  let wh=zone.h, wdir=1;
+  floodTimer=setInterval(()=>{
+    wh+=wdir*0.8;
+    if(wh>zone.h+8)wdir=-1;
+    if(wh<zone.h)wdir=1;
+    if(floodEnt)floodEnt.polygon.extrudedHeight=new Cesium.ConstantProperty(wh);
+  },100);
+
+  // 地图上的信息HUD
+  const fi=document.getElementById('flood-info');
+  fi.style.display='block';
+  document.getElementById('fi-level').textContent=zone.h+'m';
+  document.getElementById('fi-area').textContent=zone.area+' km²';
+  document.getElementById('fi-pop').textContent=zone.pop+'万人';
+  document.getElementById('fi-farm').textContent=zone.farm+'亩';
+
+  // 抽屉详情
+  document.getElementById('flood-detail').style.display='block';
+  document.getElementById('flood-detail').innerHTML=`
+    <div class="hint warn">
+      ⚠️ 水位 ${zone.h}m 情景下，白龙江武都城区段两岸低洼区域将被淹没
+    </div>
+    <div class="res-grid col3">
+      <div class="ri"><div class="rv">${zone.area}</div><div class="rl">淹没面积 km²</div>
+        <div class="rbar" style="background:linear-gradient(90deg,#1188ff,#00c8ff)"></div></div>
+      <div class="ri"><div class="rv">${zone.pop}万</div><div class="rl">影响人口</div>
+        <div class="rbar" style="background:linear-gradient(90deg,#ff3d5a,#ff9f1c)"></div></div>
+      <div class="ri"><div class="rv">${zone.farm}</div><div class="rl">影响农田 亩</div>
+        <div class="rbar" style="background:linear-gradient(90deg,#06d6a0,#00ffb3)"></div></div>
+    </div>
+    <button class="run-btn" style="margin-top:10px;border-color:var(--red);color:var(--red);
+      background:rgba(255,61,90,.08);" onclick="stopFlood()">■ 停止模拟 / 清除水体</button>`;
+}
+
+function stopFlood(){
+  if(!ensureCesium())return;
+  clearInterval(floodTimer);
+  if(floodEnt){viewer.entities.remove(floodEnt);floodEnt=null;}
+  document.getElementById('flood-info').style.display='none';
+  renderFloodDrawer();
 }
 
 // ── 距离量测 ─────────────────────────────────────────
-let measureOn = false;
-let measurePts = [];
-let measureEntities = [];
+function renderMeasureDrawer(){
+  if(!ensureCesium())return;
+  measureOn=true;measurePts=[];
+  document.getElementById('measure-hud').style.display='block';
+  document.getElementById('mh-val').textContent='等待点击...';
+  document.getElementById('mh-sub').textContent='在地图上点击第 1 个点（起点）';
 
-function toggleMeasure(btn) {
-  measureOn = !measureOn;
-  btn.classList.toggle('active', measureOn);
-  if (!measureOn) {
-    measureEntities.forEach(e => viewer.entities.remove(e));
-    measureEntities = []; measurePts = [];
+  document.getElementById('drawer-body').innerHTML=`
+    <div class="hint">点击地图上任意两点，系统自动计算两点间的空间距离。可连续量测多段距离。</div>
+    <div class="steps">
+      <div class="step cur" id="ms1"><div class="sn">1</div>点击起点</div>
+      <div class="step" id="ms2"><div class="sn">2</div>点击终点</div>
+      <div class="step" id="ms3"><div class="sn">3</div>得到结果</div>
+    </div>
+    <div class="hint warn">
+      ✅ 量测模式已开启<br>
+      👆 请在地图上点击第一个点作为起点<br>
+      📌 点击第二个点后自动显示距离
+    </div>
+    <div id="ms-results"></div>
+    <button class="run-btn" style="border-color:var(--red);color:var(--red);
+      background:rgba(255,61,90,.08);" onclick="clearMeasure()">🗑 清除所有量测</button>`;
+}
+
+if(cesiumReady){
+  viewer.screenSpaceEventHandler.setInputAction(e=>{
+  // 围栏模式
+  if(fenceOn){
+    const ray=viewer.camera.getPickRay(e.position);
+    const pos=viewer.scene.globe.pick(ray,viewer.scene);
+    if(pos){
+      const carto=Cesium.Cartographic.fromCartesian(pos);
+      fenceCartoPts.push(carto);
+      redrawFence();
+      updateFenceHUD();
+      const f1=document.getElementById('fen1');
+      if(f1)f1.classList.add('done');
+    }
+    return;
+  }
+  // 量测模式
+  if(!measureOn){
+    const p2=viewer.scene.pick(e.position);
+    if(Cesium.defined(p2)&&Cesium.defined(p2.id)&&p2.id&&p2.id.description){
+      try{const c=JSON.parse(p2.id.description.getValue());if(c&&c.name)showPopup(c);}catch(ex){}
+    }
+    return;
+  }
+  const ray2=viewer.camera.getPickRay(e.position);
+  const pos=viewer.scene.globe.pick(ray2,viewer.scene);
+  if(!pos)return;
+  measurePts.push(pos);
+
+  const dot=viewer.entities.add({
+    position:pos,
+    point:{pixelSize:12,color:Cesium.Color.fromCssColorString('#00ffb3'),
+      outlineColor:Cesium.Color.WHITE,outlineWidth:2,
+      disableDepthTestDistance:Number.POSITIVE_INFINITY},
+    label:{
+      text:measurePts.length===1?'起':'终',
+      font:'bold 12px "Microsoft YaHei"',
+      fillColor:Cesium.Color.fromCssColorString('#00ffb3'),
+      outlineColor:Cesium.Color.BLACK,outlineWidth:2,
+      style:Cesium.LabelStyle.FILL_AND_OUTLINE,
+      disableDepthTestDistance:Number.POSITIVE_INFINITY,
+      pixelOffset:new Cesium.Cartesian2(0,-22),
+    }
+  });
+  measureEnt.push(dot);
+
+  if(measurePts.length===1){
+    const ms2=document.getElementById('ms2');
+    if(ms2){document.getElementById('ms1').classList.add('done');ms2.classList.add('cur');}
+    document.getElementById('mh-sub').textContent='在地图上点击第 2 个点（终点）';
+  }
+
+  if(measurePts.length===2){
+    const dist=Cesium.Cartesian3.distance(measurePts[0],measurePts[1]);
+    const mid=Cesium.Cartesian3.midpoint(measurePts[0],measurePts[1],new Cesium.Cartesian3());
+    const distStr=dist>1000?(dist/1000).toFixed(3)+' km':dist.toFixed(1)+' m';
+
+    const line=viewer.entities.add({
+      polyline:{positions:[...measurePts],width:3,
+        material:new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#00ffb3')),
+        clampToGround:false}
+    });
+    const lbl=viewer.entities.add({
+      position:mid,
+      label:{text:distStr,font:'bold 14px "Microsoft YaHei"',
+        fillColor:Cesium.Color.fromCssColorString('#00ffb3'),
+        outlineColor:Cesium.Color.BLACK,outlineWidth:3,
+        style:Cesium.LabelStyle.FILL_AND_OUTLINE,
+        disableDepthTestDistance:Number.POSITIVE_INFINITY,
+        pixelOffset:new Cesium.Cartesian2(0,-22),
+      }
+    });
+    measureEnt.push(line,lbl);
+
+    document.getElementById('mh-val').textContent=distStr;
+    document.getElementById('mh-sub').textContent=
+      `约合 ${(dist/1000).toFixed(2)} 公里 · 继续点击可量测新线段`;
+
+    const ms3=document.getElementById('ms3');
+    if(ms3){document.getElementById('ms2').classList.add('done');ms3.classList.add('cur');}
+
+    measureResults.push(distStr);
+    const resEl=document.getElementById('ms-results');
+    if(resEl){
+      resEl.innerHTML=measureResults.map((r,i)=>
+        `<div style="display:flex;justify-content:space-between;padding:5px 0;
+          border-bottom:1px solid rgba(0,200,255,.07);">
+          <span style="font-size:11px;color:var(--dim)">第${i+1}段</span>
+          <span style="font-size:12px;color:var(--a2);font-weight:700">${r}</span>
+        </div>`
+      ).join('')+
+      `<div style="display:flex;justify-content:space-between;padding:5px 0;
+        border-top:1px solid var(--border);margin-top:4px;">
+        <span style="font-size:11px;color:var(--accent)">合计段数</span>
+        <span style="font-size:12px;color:var(--accent);font-weight:700">${measureResults.length}段</span>
+      </div>`;
+    }
+    measurePts=[];
+    // 重置步骤
+    setTimeout(()=>{
+      const s1=document.getElementById('ms1'),s2=document.getElementById('ms2');
+      if(s1&&s2){
+        s1.classList.remove('done');s1.classList.add('cur');
+        s2.classList.remove('done','cur');
+      }
+    },800);
+  }
+  },Cesium.ScreenSpaceEventType.LEFT_CLICK);
+}
+
+function clearMeasure(){
+  if(!ensureCesium())return;
+  measureEnt.forEach(e=>viewer.entities.remove(e));
+  measureEnt=[];measurePts=[];measureResults=[];
+  document.getElementById('mh-val').textContent='等待点击...';
+  document.getElementById('mh-sub').textContent='在地图上点击第 1 个点（起点）';
+  renderMeasureDrawer();
+}
+
+// ── 围栏面积 ──────────────────────────────────────────
+function renderFenceDrawer(){
+  if(!ensureCesium())return;
+  fenceOn=true; fenceCartoPts=[]; 
+  document.getElementById('fence-hud').style.display='block';
+  updateFenceHUD();
+  document.getElementById('drawer-body').innerHTML=`
+    <div class="hint">在地图上依次点击顶点绘制围栏多边形，系统实时计算围合面积。<br>至少需要 <b>3个顶点</b> 才能成形。</div>
+    <div class="steps">
+      <div class="step cur" id="fen1"><div class="sn">1</div>点击顶点</div>
+      <div class="step" id="fen2"><div class="sn">2</div>围合成形</div>
+      <div class="step" id="fen3"><div class="sn">3</div>查看面积</div>
+    </div>
+    <div class="hint warn">
+      ✅ 围栏模式已开启<br>
+      👆 点击地图任意位置添加顶点<br>
+      📐 3个点后自动显示面积，继续点击精细化围栏
+    </div>
+    <div id="fence-result" style="display:none;">
+      <div class="res-grid col3" id="fence-res-grid"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button class="run-btn" onclick="closeFence()" style="flex:1;border-color:var(--a2);color:var(--a2);background:rgba(0,255,179,.08);">
+        ✅ 完成围栏
+      </button>
+      <button class="run-btn" onclick="clearFence()" style="flex:1;border-color:var(--red);color:var(--red);background:rgba(255,61,90,.08);">
+        🗑 清除重绘
+      </button>
+    </div>`;
+}
+
+// 球面多边形面积计算（Shoelace on sphere）
+function calcGeoArea(cartoArr){
+  if(cartoArr.length<3)return 0;
+  const R=6378137;
+  let area=0;
+  const n=cartoArr.length;
+  for(let i=0;i<n;i++){
+    const j=(i+1)%n;
+    const xi=Cesium.Math.toDegrees(cartoArr[i].longitude)*Math.PI/180;
+    const xj=Cesium.Math.toDegrees(cartoArr[j].longitude)*Math.PI/180;
+    const yi=Math.log(Math.tan(Math.PI/4+Cesium.Math.toDegrees(cartoArr[i].latitude)*Math.PI/360));
+    const yj=Math.log(Math.tan(Math.PI/4+Cesium.Math.toDegrees(cartoArr[j].latitude)*Math.PI/360));
+    area+=xj*yi-xi*yj;
+  }
+  return Math.abs(area/2)*R*R;
+}
+
+function updateFenceHUD(){
+  const n=fenceCartoPts.length;
+  document.getElementById('fence-pts').textContent=n+'个顶点';
+  if(n<3){
+    document.getElementById('fence-area-val').textContent='--';
+    document.getElementById('fence-ha').textContent='-- 公顷';
+    document.getElementById('fence-mu').textContent='-- 亩';
+    document.getElementById('fence-area-sub').textContent=
+      n===0?'点击地图绘制围栏顶点':`已有${n}个顶点，还需${3-n}个`;
+    return;
+  }
+  const m2=calcGeoArea(fenceCartoPts);
+  const ha=(m2/10000).toFixed(2);
+  const mu=(m2/666.67).toFixed(1);
+  const km2=(m2/1000000).toFixed(4);
+  document.getElementById('fence-area-val').textContent=
+    m2>1000000?km2+' km²':ha+' 公顷';
+  document.getElementById('fence-ha').textContent=ha+' 公顷';
+  document.getElementById('fence-mu').textContent=mu+' 亩';
+  document.getElementById('fence-area-sub').textContent=`${n}个顶点围合 · 实时计算`;
+
+  // 更新结果区
+  const fr=document.getElementById('fence-result');
+  const fg=document.getElementById('fence-res-grid');
+  if(fr&&fg){
+    fr.style.display='block';
+    fg.innerHTML=`
+      <div class="ri"><div class="rv" style="font-size:18px;">${ha}</div><div class="rl">公顷 (ha)</div>
+        <div class="rbar" style="background:linear-gradient(90deg,#a78fff,#7b61ff)"></div></div>
+      <div class="ri"><div class="rv" style="font-size:18px;">${mu}</div><div class="rl">亩</div>
+        <div class="rbar" style="background:linear-gradient(90deg,#ffcc44,#ff9f1c)"></div></div>
+      <div class="ri"><div class="rv" style="font-size:18px;">${km2}</div><div class="rl">km²</div>
+        <div class="rbar"></div></div>`;
+    // 步骤推进
+    const f2=document.getElementById('fen2'),f3=document.getElementById('fen3');
+    if(f2&&f3){f2.classList.add('done');f3.classList.add('cur');}
   }
 }
 
-viewer.screenSpaceEventHandler.setInputAction(e => {
-  if (!measureOn) return;
-  const ray = viewer.camera.getPickRay(e.position);
-  const pos = viewer.scene.globe.pick(ray, viewer.scene);
-  if (!pos) return;
+function redrawFence(){
+  if(!ensureCesium())return;
+  // 清除旧线段和面
+  fenceEnt.forEach(e=>viewer.entities.remove(e)); fenceEnt=[];
+  if(fencePolyEnt){viewer.entities.remove(fencePolyEnt);fencePolyEnt=null;}
+  if(fenceLineEnt){viewer.entities.remove(fenceLineEnt);fenceLineEnt=null;}
+  if(fenceCartoPts.length<1)return;
 
-  measurePts.push(pos);
-  const dot = viewer.entities.add({
-    position: pos,
-    point: { pixelSize:10, color:Cesium.Color.fromCssColorString('#00ffc8'),
-      outlineColor:Cesium.Color.WHITE, outlineWidth:2,
-      disableDepthTestDistance: Number.POSITIVE_INFINITY }
-  });
-  measureEntities.push(dot);
+  const cart3=fenceCartoPts.map(c=>Cesium.Cartesian3.fromRadians(c.longitude,c.latitude,c.height||0));
 
-  if (measurePts.length === 2) {
-    const dist = Cesium.Cartesian3.distance(measurePts[0], measurePts[1]);
-    const mid = Cesium.Cartesian3.midpoint(measurePts[0], measurePts[1], new Cesium.Cartesian3());
-    const line = viewer.entities.add({
-      polyline: { positions: [...measurePts], width:2,
-        material: new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#00ffc8')),
-        clampToGround: false }
+  // 顶点标记
+  fenceCartoPts.forEach((c,i)=>{
+    const e=viewer.entities.add({
+      position:Cesium.Cartesian3.fromRadians(c.longitude,c.latitude,50),
+      point:{pixelSize:10,color:Cesium.Color.fromCssColorString('#a78fff'),
+        outlineColor:Cesium.Color.WHITE,outlineWidth:2,
+        disableDepthTestDistance:Number.POSITIVE_INFINITY,
+        heightReference:Cesium.HeightReference.CLAMP_TO_GROUND},
+      label:{text:(i+1).toString(),font:'bold 11px "Microsoft YaHei"',
+        fillColor:Cesium.Color.WHITE,outlineColor:Cesium.Color.BLACK,outlineWidth:2,
+        style:Cesium.LabelStyle.FILL_AND_OUTLINE,
+        disableDepthTestDistance:Number.POSITIVE_INFINITY,
+        pixelOffset:new Cesium.Cartesian2(0,-18),
+        heightReference:Cesium.HeightReference.CLAMP_TO_GROUND},
     });
-    const lbl = viewer.entities.add({
-      position: mid,
-      label: {
-        text: dist > 1000 ? (dist/1000).toFixed(2)+' km' : dist.toFixed(0)+' m',
-        font: 'bold 14px "Microsoft YaHei"',
-        fillColor: Cesium.Color.fromCssColorString('#00ffc8'),
-        outlineColor: Cesium.Color.BLACK, outlineWidth:3,
-        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        pixelOffset: new Cesium.Cartesian2(0,-22),
+    fenceEnt.push(e);
+  });
+
+  // 围栏连线（含闭合）
+  const linePos=cart3.length>=2?[...cart3,cart3[0]]:cart3;
+  fenceLineEnt=viewer.entities.add({
+    polyline:{
+      positions:linePos,width:2.5,clampToGround:true,
+      material:new Cesium.PolylineDashMaterialProperty({
+        color:Cesium.Color.fromCssColorString('#a78fff').withAlpha(.9),dashLength:12,
+      }),
+    }
+  });
+
+  // 填充面（3点以上）
+  if(cart3.length>=3){
+    fencePolyEnt=viewer.entities.add({
+      polygon:{
+        hierarchy:new Cesium.PolygonHierarchy(cart3),
+        material:Cesium.Color.fromCssColorString('#7b61ff').withAlpha(.18),
+        outline:false,
+        heightReference:Cesium.HeightReference.CLAMP_TO_GROUND,
       }
     });
-    measureEntities.push(line, lbl);
-    measurePts = [];
   }
-}, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+}
 
-// ── 鼠标坐标 ─────────────────────────────────────────
-const coordsEl = document.getElementById('coords');
-const mmHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
-mmHandler.setInputAction(mv => {
-  const ray = viewer.camera.getPickRay(mv.endPosition);
-  if (!ray) return;
-  const pos = viewer.scene.globe.pick(ray, viewer.scene);
-  if (pos) {
-    const c = Cesium.Cartographic.fromCartesian(pos);
-    coordsEl.textContent =
-      `经度: ${Cesium.Math.toDegrees(c.longitude).toFixed(4)}°  |  `+
-      `纬度: ${Cesium.Math.toDegrees(c.latitude).toFixed(4)}°  |  `+
-      `高程: ${Math.round(c.height)}m`;
+function closeFence(){
+  if(!ensureCesium())return;
+  fenceOn=false;
+  // 变成实线围栏
+  if(fenceLineEnt){
+    viewer.entities.remove(fenceLineEnt);
+    const cart3=fenceCartoPts.map(c=>Cesium.Cartesian3.fromRadians(c.longitude,c.latitude,0));
+    fenceLineEnt=viewer.entities.add({
+      polyline:{positions:[...cart3,cart3[0]],width:3,clampToGround:true,
+        material:new Cesium.PolylineGlowMaterialProperty({
+          glowPower:.3,color:Cesium.Color.fromCssColorString('#a78fff').withAlpha(.95)
+        })}
+    });
   }
-}, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+}
+
+function clearFence(){
+  if(!ensureCesium())return;
+  fenceEnt.forEach(e=>viewer.entities.remove(e)); fenceEnt=[];
+  if(fencePolyEnt){viewer.entities.remove(fencePolyEnt);fencePolyEnt=null;}
+  if(fenceLineEnt){viewer.entities.remove(fenceLineEnt);fenceLineEnt=null;}
+  fenceCartoPts=[];
+  updateFenceHUD();
+  renderFenceDrawer();
+}
+
+// 围栏点击事件（在量测点击同一个 handler 里判断）
+
+const coordsEl=document.getElementById('coords');
+if(cesiumReady){
+  new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas).setInputAction(mv=>{
+    const ray=viewer.camera.getPickRay(mv.endPosition);if(!ray)return;
+    const pos=viewer.scene.globe.pick(ray,viewer.scene);
+    if(pos){
+      const c=Cesium.Cartographic.fromCartesian(pos);
+      coordsEl.textContent=
+        `经度: ${Cesium.Math.toDegrees(c.longitude).toFixed(4)}°  |  `+
+        `纬度: ${Cesium.Math.toDegrees(c.latitude).toFixed(4)}°  |  高程: ${Math.round(c.height)}m`;
+    }
+  },Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+}
 
 // ── 时钟 ─────────────────────────────────────────────
-setInterval(() => {
-  document.getElementById('clk').textContent =
-    new Date().toLocaleTimeString('zh-CN', { hour12:false });
-}, 1000);
+setInterval(()=>{
+  document.getElementById('clk').textContent=
+    new Date().toLocaleTimeString('zh-CN',{hour12:false});
+},1000);
+
+// ── 图表 ─────────────────────────────────────────────
+if(window.Chart){
+  const co={
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'rgba(140,200,230,.6)',font:{size:9},boxWidth:10}}},
+    scales:{
+      x:{ticks:{color:'rgba(140,200,230,.5)',font:{size:9}},
+         grid:{color:'rgba(0,200,255,.06)'},border:{color:'transparent'}},
+      y:{ticks:{color:'rgba(140,200,230,.5)',font:{size:9}},
+         grid:{color:'rgba(0,200,255,.06)'},border:{color:'transparent'}},
+    },animation:{duration:1500,easing:'easeInOutQuart'},
+  };
+  new Chart(document.getElementById('chart-land'),{type:'line',
+    data:{labels:['2019','2020','2021','2022','2023'],datasets:[
+      {label:'耕地',data:[312,308,305,301,298],borderColor:'#00e87a',
+       backgroundColor:'rgba(0,232,122,.07)',tension:.4,fill:true,pointRadius:3,pointHoverRadius:5},
+      {label:'林地',data:[1245,1258,1267,1279,1290],borderColor:'#00c8ff',
+       backgroundColor:'rgba(0,200,255,.05)',tension:.4,fill:true,pointRadius:3,pointHoverRadius:5},
+      {label:'建设用地',data:[48,52,57,63,68],borderColor:'#ff9f1c',
+       backgroundColor:'rgba(255,159,28,.05)',tension:.4,fill:true,pointRadius:3,pointHoverRadius:5},
+    ]},
+    options:{...co,plugins:{...co.plugins,legend:{...co.plugins.legend,position:'bottom'}}},
+  });
+  new Chart(document.getElementById('chart-farm'),{type:'bar',
+    data:{labels:['武都','文县','宕昌','成县','康县','西和','礼县','徽县','两当'],
+      datasets:[{label:'耕地(万亩)',
+        data:[42.3,18.7,22.1,19.5,15.2,28.4,38.6,20.3,6.8],
+        backgroundColor:COUNTIES.map(c=>c.color+'77'),
+        borderColor:COUNTIES.map(c=>c.color),
+        borderWidth:1,borderRadius:3,
+      }]},
+    options:{...co,plugins:{legend:{display:false}}},
+  });
+  new Chart(document.getElementById('chart-pie'),{type:'doughnut',
+    data:{labels:['林地47%','耕地18%','草地15%','建设5%','其他15%'],
+      datasets:[{data:[47,18,15,5,15],
+        backgroundColor:['#00c8ff88','#00e87a88','#ffd16688','#ff9f1c88','#c77dff88'],
+        borderColor:['#00c8ff','#00e87a','#ffd166','#ff9f1c','#c77dff'],borderWidth:1,
+      }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'right',labels:{color:'rgba(140,200,230,.6)',
+        font:{size:8},boxWidth:8,padding:4}}},
+      animation:{duration:1500},
+    },
+  });
+}else{
+  showToast('图表库加载失败，请检查网络或CDN');
+}
 </script>
 </body>
 </html>
