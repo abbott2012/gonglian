@@ -117,6 +117,8 @@ body.lowperf .pt{animation:none;opacity:0;}
 .al-item{display:flex;align-items:flex-start;gap:7px;padding:6px 0;
   border-bottom:1px solid rgba(0,200,255,.06);}
 .al-item:last-child{border:none;}
+.al-item.click{cursor:pointer;transition:all .15s;}
+.al-item.click:hover{background:rgba(0,200,255,.08);border-radius:6px;padding-left:6px;padding-right:6px;}
 .al-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:4px;}
 .al-txt{font-size:11px;color:var(--text);line-height:1.45;}
 .al-time{font-size:9px;color:var(--dim);margin-top:1px;}
@@ -233,6 +235,7 @@ body.lowperf .pt{animation:none;opacity:0;}
 .feature-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 10px rgba(0,200,255,.2);}
 .feature-clear{padding:6px 10px;border:1px solid var(--border);background:rgba(0,200,255,.08);
   color:var(--dim);font-size:10px;border-radius:6px;cursor:pointer;font-family:inherit;}
+.feature-clear.on{border-color:var(--accent);color:var(--accent);background:rgba(0,200,255,.2);}
 .feature-list{display:flex;flex-direction:column;gap:10px;}
 .feature-section{border:1px solid var(--border);border-radius:8px;overflow:hidden;}
 .feature-section-title{padding:8px 10px;font-size:11px;color:var(--accent);
@@ -251,9 +254,27 @@ body.lowperf .pt{animation:none;opacity:0;}
 .tag.must{border-color:var(--red);color:var(--red);background:rgba(255,61,90,.08);}
 .tag.important{border-color:var(--gold);color:var(--gold);background:rgba(255,204,68,.08);}
 .tag.normal{border-color:var(--border);color:var(--dim);background:rgba(0,200,255,.04);}
+.tag.reco{border-color:var(--accent);color:var(--accent);background:rgba(0,200,255,.12);}
 .tag.status-ready{border-color:var(--green);color:var(--green);background:rgba(0,232,122,.08);}
 .tag.status-demo{border-color:var(--accent);color:var(--accent);background:rgba(0,200,255,.08);}
 .tag.status-entry{border-color:var(--border);color:var(--dim);background:rgba(0,200,255,.04);}
+.mini-btn{padding:4px 8px;border:1px solid var(--border);background:rgba(0,200,255,.08);
+  color:var(--dim);font-size:10px;border-radius:6px;cursor:pointer;font-family:inherit;transition:all .2s;}
+.mini-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,200,255,.16);}
+.mini-btn.on{border-color:var(--accent);color:var(--accent);background:rgba(0,200,255,.24);box-shadow:0 0 10px rgba(0,200,255,.2);}
+.chart-mode{position:absolute;right:10px;top:8px;z-index:5;display:flex;gap:6px;}
+.tool-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.tool-chip{padding:6px 10px;border:1px solid var(--border);border-radius:14px;font-size:10px;color:var(--dim);
+  cursor:pointer;background:rgba(0,200,255,.04);transition:all .2s;}
+.tool-chip:hover{border-color:var(--accent);color:var(--accent);}
+.tool-chip.on{border-color:var(--accent);color:#00151f;background:var(--accent);}
+.timeline-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;}
+.fence-list{margin-top:10px;display:flex;flex-direction:column;gap:6px;max-height:180px;overflow:auto;}
+.fence-item{border:1px solid rgba(0,200,255,.14);border-radius:6px;padding:6px 8px;background:rgba(0,200,255,.04);}
+.fence-item-top{display:flex;justify-content:space-between;align-items:center;gap:6px;}
+.fence-item-name{font-size:11px;color:var(--text);}
+.fence-item-sub{font-size:9px;color:var(--dim);margin-top:3px;}
+.fence-item-btns{display:flex;gap:6px;}
 
 /* 太阳动画 */
 #sun-anim{position:absolute;pointer-events:none;z-index:50;display:none;
@@ -453,6 +474,7 @@ body.lowperf .pt{animation:none;opacity:0;}
       <button class="nb" id="btn-home" onclick="flyHome()">🏠 全市总览</button>
       <button class="nb" id="btn-2d3d" onclick="toggle2D3D(this)">⬜ 二维切换</button>
       <button class="nb" id="btn-features" onclick="openDrawer('features',this)">🧩 功能中心</button>
+      <button class="nb" id="btn-tour" onclick="startDemoTour()">▶ 一键演示</button>
     </div>
     <div class="nav-group">
       <button class="nb" id="btn-sun" onclick="openDrawer('sun',this)">☀ 日照分析</button>
@@ -577,7 +599,27 @@ body.lowperf .pt{animation:none;opacity:0;}
 <script>
 const perfState={low:false};
 let currentMode=null;
+let featureOnlyRec=false;
 let toastTimer=null;
+const demoTour={running:false,timers:[]};
+const CHART_MODE_KEY='ln_demo_chart_mode';
+const FENCE_STORAGE_KEY='ln_demo_fences_v1';
+const SELECTED_COUNTY_KEY='ln_demo_selected_county';
+let chartMode='city';
+let selectedCountyIndex=null;
+let chartLand=null,chartFarm=null,chartPie=null;
+let sunTimer=null,sunPickPoint=null,sunPickEnt=null,sunPickEnabled=false,sunSelectedDate='';
+let floodEnt=null,floodTimer=null,floodBaseLevel=null,floodMinute=0,floodPlayTimer=null;
+let measureOn=false,measurePts=[],measureEnt=[],measureResults=[],measureTool='space',measureAreaLineEnt=null,measureAreaPolyEnt=null;
+let fenceOn=false,fenceCartoPts=[],fenceEnt=[],fencePolyEnt=null,fenceLineEnt=null;
+let savedFences=[],savedFenceEnt=[];
+let alertHighlightEnt=null,alertBlinkTimer=null;
+try{
+  const cm=localStorage.getItem(CHART_MODE_KEY);
+  if(cm==='city'||cm==='county')chartMode=cm;
+  const si=Number(localStorage.getItem(SELECTED_COUNTY_KEY));
+  if(Number.isFinite(si)&&si>=0&&si<9)selectedCountyIndex=si;
+}catch(ex){}
 function showToast(msg){
   const el=document.getElementById('sys-toast');
   if(!el)return;
@@ -666,9 +708,15 @@ const COUNTIES=[
    poly:[[106.12,33.82],[106.32,33.75],[106.50,33.85],[106.48,34.05],[106.28,34.15],[106.10,34.05],[106.08,33.88],[106.12,33.82]]},
 ];
 const ALERTS=[
-  {lv:'red', txt:'礼县北部疑似违法占地，面积约3.2亩',time:'10分钟前'},
-  {lv:'gold',txt:'武都区白龙江沿岸地质灾害风险预警',time:'32分钟前'},
-  {lv:'gold',txt:'成县农田保护区边界变动检测预警',time:'1小时前'},
+  {id:'al-001',lv:'red',txt:'礼县北部疑似违法占地，面积约3.2亩',time:'10分钟前',countyIndex:6,
+    coords:[104.96,34.22,105.06,34.17,105.18,34.20,105.10,34.29,104.96,34.22],
+    detail:'疑似新增建设占地，需核查审批手续与耕地占补平衡情况。'},
+  {id:'al-002',lv:'gold',txt:'武都区白龙江沿岸地质灾害风险预警',time:'32分钟前',countyIndex:0,
+    coords:[104.78,33.33,104.92,33.26,105.10,33.28,105.08,33.38,104.86,33.40,104.78,33.33],
+    detail:'连续降雨叠加河岸侵蚀，沿江低洼坡体存在失稳风险。'},
+  {id:'al-003',lv:'gold',txt:'成县农田保护区边界变动检测预警',time:'1小时前',countyIndex:3,
+    coords:[105.60,33.70,105.70,33.63,105.84,33.68,105.82,33.82,105.66,33.84,105.60,33.70],
+    detail:'遥感比对发现保护区边界存在变化，建议开展外业复核。'},
 ];
 const FEATURE_CATALOG=[
   {module:'基础引擎',groups:[
@@ -957,7 +1005,14 @@ function getStatusClass(status){
   if(status==='演示')return 'status-demo';
   return 'status-entry';
 }
-function buildFeatureList(keyword){
+const FEATURE_RECOMMENDED_ACTIONS=new Set([
+  'open:sun','open:flood','open:measure','open:fence',
+  'toggle2d3d','flyHome','layer','coords'
+]);
+function isRecommended(item,status){
+  return status==='已接入'||FEATURE_RECOMMENDED_ACTIONS.has(item.action||'');
+}
+function buildFeatureList(keyword,onlyRecommended){
   const kw=(keyword||'').trim().toLowerCase();
   let html='';
   (FEATURE_CATALOG||[]).forEach(mod=>{
@@ -965,18 +1020,22 @@ function buildFeatureList(keyword){
     (mod.groups||[]).forEach(group=>{
       const items=(group.items||[]).filter(it=>{
         const text=(mod.module+group.name+it.name+(it.desc||'')).toLowerCase();
-        return !kw||text.includes(kw);
+        const status=getStatus(it);
+        const rec=isRecommended(it,status);
+        return (!kw||text.includes(kw))&&(!onlyRecommended||rec);
       });
       if(!items.length)return;
       const itemsHtml=items.map(it=>{
         const status=getStatus(it);
         const action=it.action||'';
+        const rec=isRecommended(it,status);
         return `<div class="feature-item" data-action="${action}" data-status="${status}">
           <div class="feature-main">
             <div class="feature-name">${it.name}</div>
             <div class="feature-desc">${it.desc}</div>
           </div>
           <div class="feature-meta">
+            ${rec?'<span class="tag reco">推荐</span>':''}
             <span class="tag ${getPriorityClass(it.priority)}">${it.priority}</span>
             <span class="tag ${getStatusClass(status)}">${status}</span>
           </div>
@@ -988,7 +1047,7 @@ function buildFeatureList(keyword){
       html+=`<div class="feature-section"><div class="feature-section-title">${mod.module}</div>${modHtml}</div>`;
     }
   });
-  return html||'<div class="hint warn">未匹配到相关功能</div>';
+  return html||`<div class="hint warn">${onlyRecommended?'暂无推荐功能，请切换查看全部':'未匹配到相关功能'}</div>`;
 }
 function bindFeatureItems(){
   document.querySelectorAll('.feature-item').forEach(el=>{
@@ -1023,26 +1082,105 @@ function runFeatureAction(action){
   if(action==='coords')return showToast('移动鼠标查看坐标，或点击县区列表定位');
   showToast('该功能为演示入口，正在规划');
 }
+function updateDemoTourBtn(){
+  const btn=document.getElementById('btn-tour');
+  if(!btn)return;
+  btn.classList.toggle('on',demoTour.running);
+  btn.textContent=demoTour.running?'■ 停止演示':'▶ 一键演示';
+}
+function queueDemoStep(delay,fn){
+  const t=setTimeout(()=>{
+    if(!demoTour.running)return;
+    safeRun(fn);
+  },delay);
+  demoTour.timers.push(t);
+}
+function stopDemoTour(showTip){
+  const wasRunning=demoTour.running;
+  demoTour.timers.forEach(t=>clearTimeout(t));
+  demoTour.timers=[];
+  demoTour.running=false;
+  updateDemoTourBtn();
+  if(showTip&&wasRunning)showToast('演示已停止');
+}
+function startDemoTour(){
+  if(demoTour.running){
+    stopDemoTour(true);
+    return;
+  }
+  if(!ensureCesium())return;
+  closeDrawer();
+  demoTour.running=true;
+  updateDemoTourBtn();
+  showToast('演示路线已启动');
+  flyHome();
+  queueDemoStep(2600,()=>flyTo(0));
+  queueDemoStep(7000,()=>flyTo(8));
+  queueDemoStep(11200,()=>{
+    const btn=document.getElementById('btn-sun');
+    if(btn)openDrawer('sun',btn);
+  });
+  queueDemoStep(12200,()=>{
+    selectSunDate('夏至');
+  });
+  queueDemoStep(13600,()=>{
+    const c=COUNTIES[0];
+    const pos=Cesium.Cartesian3.fromDegrees(c.lon,c.lat,0);
+    sunPickPoint=pos;
+    if(sunPickEnt){viewer.entities.remove(sunPickEnt);sunPickEnt=null;}
+    sunPickEnt=viewer.entities.add({
+      position:pos,
+      point:{pixelSize:12,color:Cesium.Color.fromCssColorString('#ffd166'),outlineColor:Cesium.Color.WHITE,outlineWidth:2,disableDepthTestDistance:Number.POSITIVE_INFINITY},
+    });
+    showSunResult(Cesium.Cartographic.fromCartesian(pos));
+    const s2=document.getElementById('ss2'),s3=document.getElementById('ss3');
+    if(s2&&s3){s2.classList.add('done');s3.classList.add('cur');}
+  });
+  queueDemoStep(20600,()=>{
+    const btn=document.getElementById('btn-flood');
+    if(btn)openDrawer('flood',btn);
+  });
+  queueDemoStep(21600,()=>{
+    const btns=document.querySelectorAll('#drawer-body .opt-btn');
+    if(btns[1])startFlood(900,btns[1]);
+  });
+  queueDemoStep(29200,()=>{
+    const btn=document.getElementById('btn-features');
+    if(btn)openDrawer('features',btn);
+  });
+  queueDemoStep(30200,()=>{
+    stopDemoTour(false);
+    showToast('演示完成，可继续手动讲解');
+  });
+}
 function renderFeaturesDrawer(){
   safeRun(()=>{
+    featureOnlyRec=false;
     const body=document.getElementById('drawer-body');
     if(!body)return;
     body.innerHTML=`
       <div class="hint">功能中心提供演示入口与规划列表，已接入功能可直接进入演示。</div>
       <div class="feature-search">
         <input id="feature-key" class="feature-input" placeholder="搜索功能名称或说明">
+        <button id="feature-rec" class="feature-clear">仅看推荐</button>
         <button id="feature-clear" class="feature-clear">清空</button>
       </div>
       <div id="feature-list" class="feature-list"></div>`;
     const input=document.getElementById('feature-key');
+    const rec=document.getElementById('feature-rec');
     const clear=document.getElementById('feature-clear');
     const render=(kw)=>{
       const list=document.getElementById('feature-list');
       if(!list)return;
-      list.innerHTML=buildFeatureList(kw);
+      list.innerHTML=buildFeatureList(kw,featureOnlyRec);
       bindFeatureItems();
+      if(rec)rec.classList.toggle('on',featureOnlyRec);
     };
     if(input)input.addEventListener('input',()=>render(input.value));
+    if(rec)rec.onclick=()=>{
+      featureOnlyRec=!featureOnlyRec;
+      render(input?input.value:'');
+    };
     if(clear)clear.onclick=()=>{
       if(input)input.value='';
       render('');
@@ -1050,16 +1188,84 @@ function renderFeaturesDrawer(){
     render('');
   });
 }
+updateDemoTourBtn();
 
 // 预警列表
 const alEl=document.getElementById('alert-list');
 const alColors={red:'#ff3d5a',gold:'#ffcc44'};
-ALERTS.forEach(a=>{
-  alEl.innerHTML+=`<div class="al-item">
-    <div class="al-dot" style="background:${alColors[a.lv]};box-shadow:0 0 5px ${alColors[a.lv]}"></div>
-    <div><div class="al-txt">${a.txt}</div><div class="al-time">${a.time}</div></div>
-  </div>`;
-});
+function clearAlertHighlight(){
+  clearInterval(alertBlinkTimer);
+  alertBlinkTimer=null;
+  if(alertHighlightEnt&&viewer)viewer.entities.remove(alertHighlightEnt);
+  alertHighlightEnt=null;
+}
+function showAlertDetail(a){
+  document.getElementById('popup-name').textContent='⚠ 预警详情';
+  document.getElementById('popup-name').style.color=alColors[a.lv]||'#ffcc44';
+  document.getElementById('popup-body').innerHTML=`
+    <div class="pr"><span class="pk">预警等级</span><span class="pv">${a.lv==='red'?'红色':'黄色'}</span></div>
+    <div class="pr"><span class="pk">预警内容</span><span class="pv" style="max-width:140px;text-align:right;">${a.txt}</span></div>
+    <div class="pr"><span class="pk">更新时间</span><span class="pv">${a.time}</span></div>
+    <div class="pr"><span class="pk">处置建议</span><span class="pv" style="max-width:140px;text-align:right;">${a.detail}</span></div>`;
+  document.getElementById('popup').style.display='block';
+}
+function focusAlert(alertId){
+  if(!ensureCesium())return;
+  const a=ALERTS.find(v=>v.id===alertId);
+  if(!a)return;
+  clearAlertHighlight();
+  const deg=a.coords.slice();
+  const positions=[];
+  for(let i=0;i<deg.length;i+=2)positions.push(Cesium.Cartesian3.fromDegrees(deg[i],deg[i+1],120));
+  const sphere=Cesium.BoundingSphere.fromPoints(positions);
+  viewer.camera.flyToBoundingSphere(
+    sphere,
+    {duration:1.8,offset:new Cesium.HeadingPitchRange(0,Cesium.Math.toRadians(-48),Math.max(22000,sphere.radius*2.8))}
+  );
+  alertHighlightEnt=viewer.entities.add({
+    polygon:{
+      hierarchy:new Cesium.PolygonHierarchy(Cesium.Cartesian3.fromDegreesArray(deg)),
+      material:Cesium.Color.fromCssColorString(a.lv==='red'?'#ff3d5a':'#ffcc44').withAlpha(.28),
+      outline:true,
+      outlineColor:Cesium.Color.WHITE.withAlpha(.9),
+      outlineWidth:2,
+      height:20,
+      extrudedHeight:120,
+    }
+  });
+  let on=true;
+  alertBlinkTimer=setInterval(()=>{
+    if(!alertHighlightEnt)return;
+    const c=Cesium.Color.fromCssColorString(a.lv==='red'?'#ff3d5a':'#ffcc44').withAlpha(on?0.33:0.1);
+    alertHighlightEnt.polygon.material=new Cesium.ColorMaterialProperty(c);
+    on=!on;
+  },320);
+  setTimeout(()=>clearAlertHighlight(),7600);
+  if(a.countyIndex!==undefined&&a.countyIndex!==null){
+    document.querySelectorAll('.cr').forEach(r=>r.classList.remove('sel'));
+    const row=document.getElementById('cr'+a.countyIndex);
+    if(row)row.classList.add('sel');
+    selectedCountyIndex=a.countyIndex;
+    try{localStorage.setItem(SELECTED_COUNTY_KEY,String(a.countyIndex));}catch(ex){}
+    setChartMode('county');
+    renderSystemStatus(a.countyIndex);
+    updateCharts();
+  }
+  showAlertDetail(a);
+}
+function renderAlerts(){
+  if(!alEl)return;
+  alEl.innerHTML='';
+  ALERTS.forEach(a=>{
+    const item=document.createElement('div');
+    item.className='al-item click';
+    item.innerHTML=`<div class="al-dot" style="background:${alColors[a.lv]};box-shadow:0 0 5px ${alColors[a.lv]}"></div>
+      <div><div class="al-txt">${a.txt}</div><div class="al-time">${a.time}</div></div>`;
+    item.onclick=()=>focusAlert(a.id);
+    alEl.appendChild(item);
+  });
+}
+renderAlerts();
 
 // ── Cesium ──────────────────────────────────────────
 try{
@@ -1146,6 +1352,8 @@ if(cesiumReady){
     labelEnt.push(lbl);
   });
 }
+loadSavedFences();
+if(cesiumReady)renderSavedFenceEntities();
 
 // ── 县区列表 ─────────────────────────────────────────
 const listEl=document.getElementById('county-list');
@@ -1157,6 +1365,30 @@ COUNTIES.forEach((c,i)=>{
   r.onclick=()=>flyTo(i);
   listEl.appendChild(r);
 });
+const sysStatusBody=document.querySelector('#rp .card:nth-child(2) .cb');
+function renderSystemStatus(countyIndex){
+  if(!sysStatusBody)return;
+  if(countyIndex===undefined||countyIndex===null){
+    sysStatusBody.innerHTML=`
+      <div class="sr"><span class="sk">天地图服务</span><span class="sv2" style="color:var(--green)">● 正常</span></div>
+      <div class="sr"><span class="sk">地形高程</span><span class="sv2" style="color:var(--green)">● 正常</span></div>
+      <div class="sr"><span class="sk">矢量边界</span><span class="sv2" style="color:var(--green)">● 已加载</span></div>
+      <div class="sr"><span class="sk">数据更新</span><span class="sv2" style="color:var(--gold)">今日08:00</span></div>
+      <div class="sr"><span class="sk">渲染引擎</span><span class="sv2" style="color:var(--accent)">Cesium</span></div>`;
+    return;
+  }
+  const c=COUNTIES[countyIndex];
+  const farm=Number(c.farm)||0;
+  const monitor=Math.round(farm*22+countyIndex*11);
+  const risk=countyIndex%3===0?'较高':(countyIndex%3===1?'中等':'可控');
+  sysStatusBody.innerHTML=`
+    <div class="sr"><span class="sk">当前县区</span><span class="sv2" style="color:${c.color}">${c.name}</span></div>
+    <div class="sr"><span class="sk">常住人口</span><span class="sv2" style="color:var(--a2)">${c.pop}</span></div>
+    <div class="sr"><span class="sk">耕地面积</span><span class="sv2" style="color:var(--gold)">${c.farm} 万亩</span></div>
+    <div class="sr"><span class="sk">监测地块</span><span class="sv2" style="color:var(--accent)">${monitor} 个</span></div>
+    <div class="sr"><span class="sk">风险状态</span><span class="sv2" style="color:${risk==='较高'?'var(--red)':(risk==='中等'?'var(--gold)':'var(--green)')}">● ${risk}</span></div>`;
+}
+renderSystemStatus(null);
 
 // 飞行 —— 用 lookAt 确保目标点在画面中心
 function flyHome(){
@@ -1168,6 +1400,10 @@ function flyHome(){
   );
   closePopup();
   document.querySelectorAll('.cr').forEach(r=>r.classList.remove('sel'));
+  selectedCountyIndex=null;
+  try{localStorage.removeItem(SELECTED_COUNTY_KEY);}catch(ex){}
+  setChartMode('city');
+  updateCharts();
 }
 if(cesiumReady)flyHome();
 
@@ -1181,6 +1417,11 @@ function flyTo(i){
   );
   document.querySelectorAll('.cr').forEach(r=>r.classList.remove('sel'));
   document.getElementById('cr'+i).classList.add('sel');
+  selectedCountyIndex=i;
+  try{localStorage.setItem(SELECTED_COUNTY_KEY,String(i));}catch(ex){}
+  setChartMode('county');
+  renderSystemStatus(i);
+  updateCharts();
   showPopup(c);
 }
 
@@ -1238,10 +1479,7 @@ function toggle2D3D(btn){
 }
 
 // ── 抽屉面板 ─────────────────────────────────────────
-let floodEnt=null,floodTimer=null;
-let measureOn=false,measurePts=[],measureEnt=[],measureResults=[];
-let sunTimer=null;
-let fenceOn=false,fenceCartoPts=[],fenceEnt=[],fencePolyEnt=null,fenceLineEnt=null;
+// 状态变量已在脚本顶部统一声明
 
 
 function updateModeHUD(){
@@ -1331,18 +1569,24 @@ function cleanupAll(){
   }
   // 日照清理
   clearInterval(sunTimer); sunTimer=null;
+  sunPickEnabled=false;
+  sunPickPoint=null;
+  if(sunPickEnt){viewer.entities.remove(sunPickEnt);sunPickEnt=null;}
   document.getElementById('sun-anim').style.display='none';
   viewer.scene.globe.enableLighting=false;
   viewer.shadows=false;
   viewer.clock.shouldAnimate=false;
   // 水淹清理
   clearInterval(floodTimer); floodTimer=null;
+  clearInterval(floodPlayTimer); floodPlayTimer=null;
+  floodBaseLevel=null;floodMinute=0;
   if(floodEnt){viewer.entities.remove(floodEnt);floodEnt=null;}
   document.getElementById('flood-info').style.display='none';
   // 量测清理
   measureOn=false;
   measureEnt.forEach(e=>viewer.entities.remove(e));
   measureEnt=[];measurePts=[];measureResults=[];
+  measureAreaLineEnt=null;measureAreaPolyEnt=null;
   document.getElementById('measure-hud').style.display='none';
   // 围栏清理
   fenceOn=false;
@@ -1354,29 +1598,61 @@ function cleanupAll(){
 }
 
 // ── 日照分析 ─────────────────────────────────────────
-const SUN_DATA={
-  冬至:{date:'2024-12-22',rise:'07:18',noon:'12:25',set:'17:32',hours:'10.2',
-       angle:'33°',shadow:'最长',desc:'日照时间最短，阴影最长，适合评估建筑遮挡'},
-  夏至:{date:'2024-06-21',rise:'05:48',noon:'12:35',set:'19:22',hours:'13.6',
-       angle:'76°',shadow:'最短',desc:'日照时间最长，太阳高度角最大，光热资源丰富'},
-  春分:{date:'2024-03-20',rise:'06:30',noon:'12:28',set:'18:26',hours:'12.0',
-       angle:'54°',shadow:'居中',desc:'昼夜等长，太阳从正东升起，从正西落下'},
-};
-let selSunDate=null;
-
+function toDateInputValue(d){
+  const pad=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function dayOfYear(d){
+  const s=new Date(d.getFullYear(),0,0);
+  return Math.floor((d-s)/86400000);
+}
+function hourToStr(v){
+  let x=((v%24)+24)%24;
+  const h=Math.floor(x);
+  const m=Math.floor((x-h)*60);
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+function calcSunMetrics(dateStr,lon,lat){
+  const d=new Date(dateStr+'T00:00:00');
+  const n=dayOfYear(d);
+  const B=2*Math.PI*(n-81)/364;
+  const eqTime=9.87*Math.sin(2*B)-7.53*Math.cos(B)-1.5*Math.sin(B);
+  const decl=23.44*Math.sin((2*Math.PI/365)*(n-81));
+  const latR=lat*Math.PI/180;
+  const decR=decl*Math.PI/180;
+  const cosH=Math.max(-1,Math.min(1,-Math.tan(latR)*Math.tan(decR)));
+  const H=Math.acos(cosH);
+  const dayHours=24*H/Math.PI;
+  const solarNoon=12-(lon-120)/15-eqTime/60;
+  const rise=solarNoon-dayHours/2;
+  const set=solarNoon+dayHours/2;
+  const noonAlt=Math.max(0,90-Math.abs(lat-decl));
+  const shadowRatio=noonAlt>0?1/Math.tan(noonAlt*Math.PI/180):99;
+  return {
+    rise:hourToStr(rise),
+    set:hourToStr(set),
+    noon:hourToStr(solarNoon),
+    hours:dayHours.toFixed(2),
+    angle:noonAlt.toFixed(1),
+    shadow:shadowRatio>12?'极长':(shadowRatio>3?'较长':'较短'),
+    shadowRatio:shadowRatio.toFixed(2),
+  };
+}
 function renderSunDrawer(){
+  const today=toDateInputValue(new Date());
+  sunPickEnabled=false;sunPickPoint=null;sunSelectedDate=today;
   document.getElementById('drawer-body').innerHTML=`
-    <div class="hint">选择分析日期，系统将在地图上方展示太阳运行轨迹动画，并输出日照数据。</div>
+    <div class="hint">选择日期并在地图点选目标点，系统计算该点日照时长、日出日落和阴影比例（演示级近似算法）。</div>
     <div class="steps">
       <div class="step cur" id="ss1"><div class="sn">1</div>选择日期</div>
-      <div class="step" id="ss2"><div class="sn">2</div>运行模拟</div>
+      <div class="step" id="ss2"><div class="sn">2</div>点选目标点</div>
       <div class="step" id="ss3"><div class="sn">3</div>查看结果</div>
     </div>
-    <div class="btn-group">
-      <div class="opt-btn" onclick="selectSunDate('冬至',this)">❄️<br>冬至日<br>12月22日</div>
-      <div class="opt-btn" onclick="selectSunDate('夏至',this)">☀️<br>夏至日<br>6月21日</div>
-      <div class="opt-btn" onclick="selectSunDate('春分',this)">🌸<br>春分日<br>3月20日</div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+      <input id="sun-date" type="date" class="feature-input" value="${today}">
+      <button class="run-btn" style="margin:0;width:120px;" onclick="startSunPick()">开始分析</button>
     </div>
+    <div class="hint warn" id="sun-pick-hint">📍 先选择日期后点击“开始分析”，然后在地图上点选目标位置。</div>
     <div id="sun-run-area" style="display:none;">
       <div class="prog-wrap">
         <div class="prog-label"><span id="sun-prog-txt">准备分析...</span><span id="sun-pct">0%</span></div>
@@ -1385,79 +1661,62 @@ function renderSunDrawer(){
     </div>
     <div id="sun-result-area" style="display:none;"></div>`;
 }
-
-function selectSunDate(d,btn){
+function selectSunDate(season){
+  const map={冬至:'2024-12-22',夏至:'2024-06-21',春分:'2024-03-20'};
+  const dateEl=document.getElementById('sun-date');
+  if(dateEl&&map[season])dateEl.value=map[season];
+  startSunPick();
+}
+function startSunPick(){
   if(!ensureCesium())return;
-  selSunDate=d;
-  document.querySelectorAll('#drawer-body .opt-btn').forEach(b=>b.classList.remove('sel'));
-  btn.classList.add('sel');
-  document.getElementById('ss1').classList.add('done');
-  document.getElementById('ss2').classList.add('cur');
+  const dateEl=document.getElementById('sun-date');
+  if(!dateEl||!dateEl.value){showToast('请先选择日期');return;}
+  sunSelectedDate=dateEl.value;
+  sunPickEnabled=true;
   document.getElementById('sun-run-area').style.display='block';
   document.getElementById('sun-result-area').style.display='none';
-
-  // 飞到全市视角
+  document.getElementById('ss1').classList.add('done');
+  document.getElementById('ss2').classList.add('cur');
+  document.getElementById('sun-pick-hint').innerHTML='👆 请在地图上点击目标分析点';
   viewer.camera.flyTo({
     destination:Cesium.Cartesian3.fromDegrees(105.06,33.50,280000),
-    orientation:{heading:0,pitch:Cesium.Math.toRadians(-50),roll:0},duration:1.5,
+    orientation:{heading:0,pitch:Cesium.Math.toRadians(-50),roll:0},duration:1.2,
   });
-
-  // 显示太阳轨迹动画
   document.getElementById('sun-anim').style.display='block';
-
-  // 启动 Cesium 日照（辅助）
   viewer.scene.globe.enableLighting=true;
   viewer.shadows=true;
-  const data=SUN_DATA[d];
-  viewer.clock.currentTime=Cesium.JulianDate.fromDate(new Date(data.date+'T04:00:00Z'));
-  viewer.clock.multiplier=1800;
+  viewer.clock.currentTime=Cesium.JulianDate.fromDate(new Date(sunSelectedDate+'T04:00:00Z'));
+  viewer.clock.multiplier=1500;
   viewer.clock.shouldAnimate=true;
-
-  // 进度条动画
   let pct=0;
-  const steps=['解析日期参数...','计算太阳高度角...','模拟光照路径...','生成日照数据...','分析完成 ✓'];
-  let si=0;
   clearInterval(sunTimer);
   sunTimer=setInterval(()=>{
-    pct+=4;
+    pct=Math.min(100,pct+10);
     document.getElementById('sun-pct').textContent=pct+'%';
     document.getElementById('sun-fill').style.width=pct+'%';
-    if(pct%20===0&&si<steps.length){
-      document.getElementById('sun-prog-txt').textContent=steps[si++];
-    }
-    if(pct>=100){
-      clearInterval(sunTimer);
-      document.getElementById('ss2').classList.add('done');
-      document.getElementById('ss3').classList.add('cur');
-      showSunResult(d);
-    }
-  },60);
+    document.getElementById('sun-prog-txt').textContent=pct<100?'预计算光照参数...':'等待点选目标点...';
+    if(pct>=100)clearInterval(sunTimer);
+  },70);
 }
-
-function showSunResult(d){
-  const r=SUN_DATA[d];
+function showSunResult(carto){
+  const lon=Cesium.Math.toDegrees(carto.longitude);
+  const lat=Cesium.Math.toDegrees(carto.latitude);
+  const r=calcSunMetrics(sunSelectedDate,lon,lat);
   document.getElementById('sun-result-area').style.display='block';
   document.getElementById('sun-result-area').innerHTML=`
-    <div class="hint" style="margin-bottom:10px;">
-      📌 ${r.desc}
-    </div>
+    <div class="hint" style="margin-bottom:10px;">📌 点位：${lon.toFixed(4)}°E, ${lat.toFixed(4)}°N（${sunSelectedDate}）</div>
     <div class="res-grid col3">
-      <div class="ri"><div class="rv" style="font-size:16px;">${r.rise}</div><div class="rl">日出时间</div>
-        <div class="rbar" style="background:linear-gradient(90deg,#ff8800,#ffcc44)"></div></div>
-      <div class="ri"><div class="rv">${r.hours}h</div><div class="rl">有效日照时长</div>
-        <div class="rbar"></div></div>
-      <div class="ri"><div class="rv" style="font-size:16px;">${r.set}</div><div class="rl">日落时间</div>
-        <div class="rbar" style="background:linear-gradient(90deg,#ff6b9d,#c77dff)"></div></div>
+      <div class="ri"><div class="rv" style="font-size:16px;">${r.rise}</div><div class="rl">日出时间</div><div class="rbar" style="background:linear-gradient(90deg,#ff8800,#ffcc44)"></div></div>
+      <div class="ri"><div class="rv">${r.hours}h</div><div class="rl">有效日照时长</div><div class="rbar"></div></div>
+      <div class="ri"><div class="rv" style="font-size:16px;">${r.set}</div><div class="rl">日落时间</div><div class="rbar" style="background:linear-gradient(90deg,#ff6b9d,#c77dff)"></div></div>
     </div>
-    <div class="res-grid" style="margin-top:8px;">
-      <div class="ri"><div class="rv">${r.angle}</div><div class="rl">正午太阳高度角</div>
-        <div class="rbar" style="background:linear-gradient(90deg,#ffcc44,#ff9f1c)"></div></div>
-      <div class="ri"><div class="rv">${r.shadow}</div><div class="rl">建筑阴影状态</div>
-        <div class="rbar" style="background:linear-gradient(90deg,#4ecdc4,#00c8ff)"></div></div>
+    <div class="res-grid col3" style="margin-top:8px;">
+      <div class="ri"><div class="rv" style="font-size:16px;">${r.noon}</div><div class="rl">地方时正午</div><div class="rbar" style="background:linear-gradient(90deg,#4ecdc4,#00c8ff)"></div></div>
+      <div class="ri"><div class="rv">${r.angle}°</div><div class="rl">正午太阳高度角</div><div class="rbar" style="background:linear-gradient(90deg,#ffcc44,#ff9f1c)"></div></div>
+      <div class="ri"><div class="rv">${r.shadowRatio}</div><div class="rl">阴影长度比</div><div class="rbar" style="background:linear-gradient(90deg,#a78fff,#7b61ff)"></div></div>
     </div>
-    <button class="run-btn" onclick="selectSunDate('${d}',document.querySelector('.opt-btn.sel'))">
-      🔄 重新模拟
-    </button>`;
+    <div class="hint" style="margin-top:8px;">阴影状态：${r.shadow}（比值越大表示影子越长）</div>
+    <button class="run-btn" onclick="startSunPick()">🔄 重新分析</button>`;
 }
 
 // ── 水淹模拟 ─────────────────────────────────────────
@@ -1473,10 +1732,10 @@ const FLOOD_ZONES={
 
 function renderFloodDrawer(){
   document.getElementById('drawer-body').innerHTML=`
-    <div class="hint">模拟白龙江流域洪涝淹没范围。选择水位后，地图上将显示对应的淹没区域（蓝色覆盖）。</div>
+    <div class="hint">模拟白龙江流域洪涝淹没范围。先选择基准水位，再通过时间轴回放扩散过程。</div>
     <div class="steps">
       <div class="step cur" id="fs1"><div class="sn">1</div>选择水位</div>
-      <div class="step" id="fs2"><div class="sn">2</div>查看范围</div>
+      <div class="step" id="fs2"><div class="sn">2</div>时间回放</div>
       <div class="step" id="fs3"><div class="sn">3</div>影响评估</div>
     </div>
     <div class="btn-group">
@@ -1490,6 +1749,20 @@ function renderFloodDrawer(){
         🔴<br><b>950m</b><br>百年一遇<br><span style="color:var(--red);font-size:10px">大范围</span>
       </div>
     </div>
+    <div class="hint warn">⏱ 时间轴回放：支持 30/60/120 分钟快捷档位与连续滑杆调节。</div>
+    <div class="timeline-row">
+      <span id="flood-minute-txt" style="font-size:11px;color:var(--dim)">当前时刻：0 分钟</span>
+      <button id="flood-play-btn" class="mini-btn" onclick="toggleFloodPlay()">▶ 播放</button>
+    </div>
+    <div style="margin-top:6px;">
+      <input id="flood-minute" type="range" min="0" max="120" step="1" value="0" style="width:100%;"
+        oninput="setFloodMinute(this.value,true)">
+    </div>
+    <div style="display:flex;gap:6px;margin-top:6px;">
+      <button class="mini-btn" id="flood-tag-30" onclick="setFloodMinute(30,true)">30min</button>
+      <button class="mini-btn" id="flood-tag-60" onclick="setFloodMinute(60,true)">60min</button>
+      <button class="mini-btn" id="flood-tag-120" onclick="setFloodMinute(120,true)">120min</button>
+    </div>
     <div id="flood-prog" style="display:none;">
       <div class="prog-wrap">
         <div class="prog-label"><span>正在计算淹没范围...</span><span id="fp-pct">0%</span></div>
@@ -1498,25 +1771,84 @@ function renderFloodDrawer(){
     </div>
     <div id="flood-detail" style="display:none;"></div>`;
 }
-
+function blendFloodZone(z1,z2,t){
+  const f=Math.max(0,Math.min(1,t));
+  const coords=z1.coords.map((v,i)=>+(v+(z2.coords[i]-v)*f).toFixed(5));
+  return {
+    coords,
+    h:+(z1.h+(z2.h-z1.h)*f).toFixed(1),
+    area:+(Number(z1.area)+(Number(z2.area)-Number(z1.area))*f).toFixed(2),
+    pop:+(Number(z1.pop)+(Number(z2.pop)-Number(z1.pop))*f).toFixed(2),
+    farm:Math.round(Number(z1.farm)+(Number(z2.farm)-Number(z1.farm))*f),
+    color:z1.color,
+  };
+}
+function getFloodState(baseLevel,minute){
+  const m=Math.max(0,Math.min(120,Number(minute)||0));
+  if(baseLevel===950)return {...FLOOD_ZONES[950],area:Number(FLOOD_ZONES[950].area),pop:Number(FLOOD_ZONES[950].pop),farm:Number(FLOOD_ZONES[950].farm)};
+  if(baseLevel===900){
+    if(m<=60)return blendFloodZone(FLOOD_ZONES[900],FLOOD_ZONES[950],m/60);
+    return {...blendFloodZone(FLOOD_ZONES[900],FLOOD_ZONES[950],1),color:FLOOD_ZONES[950].color};
+  }
+  if(m<=60)return blendFloodZone(FLOOD_ZONES[860],FLOOD_ZONES[900],m/60);
+  return blendFloodZone(FLOOD_ZONES[900],FLOOD_ZONES[950],(m-60)/60);
+}
+function updateFloodQuickTag(minute){
+  [30,60,120].forEach(v=>{
+    const el=document.getElementById('flood-tag-'+v);
+    if(el)el.classList.toggle('on',Number(minute)===v);
+  });
+}
+function updateFloodVisualization(state){
+  if(!ensureCesium())return;
+  const degArray=[];
+  for(let i=0;i<state.coords.length;i+=2)degArray.push(state.coords[i],state.coords[i+1]);
+  if(!floodEnt){
+    floodEnt=viewer.entities.add({
+      polygon:{
+        hierarchy:new Cesium.PolygonHierarchy(Cesium.Cartesian3.fromDegreesArray(degArray)),
+        height:820,
+        extrudedHeight:state.h,
+        material:new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString(state.color).withAlpha(.55)),
+        outline:true,
+        outlineColor:Cesium.Color.fromCssColorString('#88ccff').withAlpha(0.8),
+        outlineWidth:2,
+      }
+    });
+  }else{
+    floodEnt.polygon.hierarchy=new Cesium.PolygonHierarchy(Cesium.Cartesian3.fromDegreesArray(degArray));
+    floodEnt.polygon.extrudedHeight=new Cesium.ConstantProperty(state.h);
+    floodEnt.polygon.material=new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString(state.color).withAlpha(.55));
+  }
+  const fi=document.getElementById('flood-info');
+  fi.style.display='block';
+  document.getElementById('fi-level').textContent=state.h.toFixed(1)+'m';
+  document.getElementById('fi-area').textContent=state.area.toFixed(2)+' km²';
+  document.getElementById('fi-pop').textContent=state.pop.toFixed(2)+'万人';
+  document.getElementById('fi-farm').textContent=state.farm+'亩';
+  document.getElementById('flood-detail').style.display='block';
+  document.getElementById('flood-detail').innerHTML=`
+    <div class="hint warn">⚠️ 基准水位 ${floodBaseLevel}m · 回放 ${floodMinute} 分钟</div>
+    <div class="res-grid col3">
+      <div class="ri"><div class="rv">${state.area.toFixed(2)}</div><div class="rl">淹没面积 km²</div><div class="rbar" style="background:linear-gradient(90deg,#1188ff,#00c8ff)"></div></div>
+      <div class="ri"><div class="rv">${state.pop.toFixed(2)}万</div><div class="rl">影响人口</div><div class="rbar" style="background:linear-gradient(90deg,#ff3d5a,#ff9f1c)"></div></div>
+      <div class="ri"><div class="rv">${state.farm}</div><div class="rl">影响农田 亩</div><div class="rbar" style="background:linear-gradient(90deg,#06d6a0,#00ffb3)"></div></div>
+    </div>
+    <button class="run-btn" style="margin-top:10px;border-color:var(--red);color:var(--red);
+      background:rgba(255,61,90,.08);" onclick="stopFlood()">■ 停止模拟 / 清除水体</button>`;
+}
 function startFlood(level,btn){
   if(!ensureCesium())return;
   document.querySelectorAll('#drawer-body .opt-btn').forEach(b=>b.classList.remove('sel'));
-  btn.classList.add('sel');
+  if(btn)btn.classList.add('sel');
   document.getElementById('fs1').classList.add('done');
   document.getElementById('fs2').classList.add('cur');
-
-  // 清除旧水体
-  clearInterval(floodTimer);
-  if(floodEnt){viewer.entities.remove(floodEnt);floodEnt=null;}
-
+  floodBaseLevel=level;
+  floodMinute=0;
+  clearInterval(floodPlayTimer);floodPlayTimer=null;
   const zone=FLOOD_ZONES[level];
-
-  const coords=zone.coords;
-  const positions=[];
-  for(let i=0;i<coords.length;i+=2){
-    positions.push(Cesium.Cartesian3.fromDegrees(coords[i],coords[i+1],zone.h));
-  }
+  const coords=zone.coords,positions=[];
+  for(let i=0;i<coords.length;i+=2)positions.push(Cesium.Cartesian3.fromDegrees(coords[i],coords[i+1],zone.h));
   const sphere=Cesium.BoundingSphere.fromPoints(positions);
   viewer.camera.flyToBoundingSphere(
     sphere,
@@ -1527,83 +1859,55 @@ function startFlood(level,btn){
   document.getElementById('flood-prog').style.display='block';
   document.getElementById('flood-detail').style.display='none';
   let pct=0;
-  const pt=setInterval(()=>{
+  clearInterval(floodTimer);
+  floodTimer=setInterval(()=>{
     pct+=5;
     document.getElementById('fp-pct').textContent=pct+'%';
     document.getElementById('fp-fill').style.width=pct+'%';
     if(pct>=100){
-      clearInterval(pt);
-      showFloodOnMap(zone,level);
+      clearInterval(floodTimer);floodTimer=null;
+      document.getElementById('fs2').classList.add('done');
+      document.getElementById('fs3').classList.add('cur');
+      setFloodMinute(0,true);
     }
   },40);
 }
-
-function showFloodOnMap(zone,level){
-  if(!ensureCesium())return;
-  document.getElementById('fs2').classList.add('done');
-  document.getElementById('fs3').classList.add('cur');
-
-  // 创建水体（贴地面 + 略微抬高，确保可见）
-  const coords=zone.coords;
-  const degArray=[];
-  for(let i=0;i<coords.length;i+=2)degArray.push(coords[i],coords[i+1]);
-
-  floodEnt=viewer.entities.add({
-    polygon:{
-      hierarchy:new Cesium.PolygonHierarchy(
-        Cesium.Cartesian3.fromDegreesArray(degArray)
-      ),
-      // 不使用 extrudedHeight，改用 height 贴地面显示
-      height:820,
-      extrudedHeight:zone.h,
-      material:new Cesium.ColorMaterialProperty(
-        Cesium.Color.fromCssColorString(zone.color).withAlpha(0.55)
-      ),
-      outline:true,
-      outlineColor:Cesium.Color.fromCssColorString('#88ccff').withAlpha(0.8),
-      outlineWidth:2,
+function setFloodMinute(minute,fromUI){
+  if(floodBaseLevel===null){showToast('请先选择基准水位');return;}
+  floodMinute=Math.max(0,Math.min(120,Math.round(Number(minute)||0)));
+  const slider=document.getElementById('flood-minute');
+  if(slider&&fromUI)slider.value=String(floodMinute);
+  const txt=document.getElementById('flood-minute-txt');
+  if(txt)txt.textContent='当前时刻：'+floodMinute+' 分钟';
+  updateFloodQuickTag(floodMinute);
+  const state=getFloodState(floodBaseLevel,floodMinute);
+  updateFloodVisualization(state);
+}
+function toggleFloodPlay(){
+  if(floodBaseLevel===null){showToast('请先选择基准水位');return;}
+  const btn=document.getElementById('flood-play-btn');
+  if(floodPlayTimer){
+    clearInterval(floodPlayTimer);floodPlayTimer=null;
+    if(btn)btn.textContent='▶ 播放';
+    return;
+  }
+  if(btn)btn.textContent='⏸ 暂停';
+  floodPlayTimer=setInterval(()=>{
+    let m=floodMinute+2;
+    if(m>120){
+      clearInterval(floodPlayTimer);floodPlayTimer=null;
+      if(btn)btn.textContent='▶ 播放';
+      return;
     }
-  });
-
-  // 水位波动动画
-  let wh=zone.h, wdir=1;
-  floodTimer=setInterval(()=>{
-    wh+=wdir*0.8;
-    if(wh>zone.h+8)wdir=-1;
-    if(wh<zone.h)wdir=1;
-    if(floodEnt)floodEnt.polygon.extrudedHeight=new Cesium.ConstantProperty(wh);
-  },100);
-
-  // 地图上的信息HUD
-  const fi=document.getElementById('flood-info');
-  fi.style.display='block';
-  document.getElementById('fi-level').textContent=zone.h+'m';
-  document.getElementById('fi-area').textContent=zone.area+' km²';
-  document.getElementById('fi-pop').textContent=zone.pop+'万人';
-  document.getElementById('fi-farm').textContent=zone.farm+'亩';
-
-  // 抽屉详情
-  document.getElementById('flood-detail').style.display='block';
-  document.getElementById('flood-detail').innerHTML=`
-    <div class="hint warn">
-      ⚠️ 水位 ${zone.h}m 情景下，白龙江武都城区段两岸低洼区域将被淹没
-    </div>
-    <div class="res-grid col3">
-      <div class="ri"><div class="rv">${zone.area}</div><div class="rl">淹没面积 km²</div>
-        <div class="rbar" style="background:linear-gradient(90deg,#1188ff,#00c8ff)"></div></div>
-      <div class="ri"><div class="rv">${zone.pop}万</div><div class="rl">影响人口</div>
-        <div class="rbar" style="background:linear-gradient(90deg,#ff3d5a,#ff9f1c)"></div></div>
-      <div class="ri"><div class="rv">${zone.farm}</div><div class="rl">影响农田 亩</div>
-        <div class="rbar" style="background:linear-gradient(90deg,#06d6a0,#00ffb3)"></div></div>
-    </div>
-    <button class="run-btn" style="margin-top:10px;border-color:var(--red);color:var(--red);
-      background:rgba(255,61,90,.08);" onclick="stopFlood()">■ 停止模拟 / 清除水体</button>`;
+    setFloodMinute(m,true);
+  },260);
 }
 
 function stopFlood(){
-  if(!ensureCesium())return;
-  clearInterval(floodTimer);
+  clearInterval(floodTimer);floodTimer=null;
+  clearInterval(floodPlayTimer);floodPlayTimer=null;
   if(floodEnt){viewer.entities.remove(floodEnt);floodEnt=null;}
+  floodBaseLevel=null;floodMinute=0;
   document.getElementById('flood-info').style.display='none';
   renderFloodDrawer();
 }
@@ -1611,30 +1915,189 @@ function stopFlood(){
 // ── 距离量测 ─────────────────────────────────────────
 function renderMeasureDrawer(){
   if(!ensureCesium())return;
-  measureOn=true;measurePts=[];
+  measureOn=true;measurePts=[];measureTool='space';
   document.getElementById('measure-hud').style.display='block';
   document.getElementById('mh-val').textContent='等待点击...';
-  document.getElementById('mh-sub').textContent='在地图上点击第 1 个点（起点）';
+  document.getElementById('mh-sub').textContent='当前工具：空间距离 · 点击第 1 个点';
 
   document.getElementById('drawer-body').innerHTML=`
-    <div class="hint">点击地图上任意两点，系统自动计算两点间的空间距离。可连续量测多段距离。</div>
+    <div class="hint">支持空间距离、贴地距离、垂直高度、方位角、面积量测。面积工具可右键结束绘制。</div>
+    <div class="tool-chips" id="measure-tools">
+      <div class="tool-chip on" data-tool="space" onclick="selectMeasureTool('space',this)">空间距离</div>
+      <div class="tool-chip" data-tool="ground" onclick="selectMeasureTool('ground',this)">贴地距离</div>
+      <div class="tool-chip" data-tool="height" onclick="selectMeasureTool('height',this)">垂直高度</div>
+      <div class="tool-chip" data-tool="bearing" onclick="selectMeasureTool('bearing',this)">方位角</div>
+      <div class="tool-chip" data-tool="area" onclick="selectMeasureTool('area',this)">面积</div>
+    </div>
     <div class="steps">
       <div class="step cur" id="ms1"><div class="sn">1</div>点击起点</div>
-      <div class="step" id="ms2"><div class="sn">2</div>点击终点</div>
-      <div class="step" id="ms3"><div class="sn">3</div>得到结果</div>
+      <div class="step" id="ms2"><div class="sn">2</div>继续点选</div>
+      <div class="step" id="ms3"><div class="sn">3</div>输出结果</div>
     </div>
-    <div class="hint warn">
-      ✅ 量测模式已开启<br>
-      👆 请在地图上点击第一个点作为起点<br>
-      📌 点击第二个点后自动显示距离
-    </div>
+    <div class="hint warn" id="measure-hint">✅ 空间距离已开启：点击两点得到三维空间距离。</div>
     <div id="ms-results"></div>
+    <button class="run-btn" id="ms-finish-area" style="display:none;margin-bottom:8px;" onclick="finishMeasureArea()">✅ 完成面测</button>
     <button class="run-btn" style="border-color:var(--red);color:var(--red);
       background:rgba(255,61,90,.08);" onclick="clearMeasure()">🗑 清除所有量测</button>`;
+}
+function selectMeasureTool(tool,el){
+  measureTool=tool;measurePts=[];
+  if(measureAreaLineEnt){viewer.entities.remove(measureAreaLineEnt);measureAreaLineEnt=null;}
+  if(measureAreaPolyEnt){viewer.entities.remove(measureAreaPolyEnt);measureAreaPolyEnt=null;}
+  document.querySelectorAll('#measure-tools .tool-chip').forEach(n=>n.classList.remove('on'));
+  if(el)el.classList.add('on');
+  const hintMap={
+    space:'✅ 空间距离：点击两点得到三维直线距离。',
+    ground:'✅ 贴地距离：点击两点得到地表最短距离。',
+    height:'✅ 垂直高度：点击两点得到高程差。',
+    bearing:'✅ 方位角：点击两点得到起点指向终点的方位角。',
+    area:'✅ 面积量测：连续点击多点绘面，右键或按钮结束。'
+  };
+  const msHint=document.getElementById('measure-hint');
+  if(msHint)msHint.textContent=hintMap[tool]||'';
+  const finishBtn=document.getElementById('ms-finish-area');
+  if(finishBtn)finishBtn.style.display=tool==='area'?'block':'none';
+  document.getElementById('mh-val').textContent='等待点击...';
+  document.getElementById('mh-sub').textContent='当前工具：'+(tool==='space'?'空间距离':tool==='ground'?'贴地距离':tool==='height'?'垂直高度':tool==='bearing'?'方位角':'面积')+' · 点击地图开始';
+}
+function addMeasureResult(label,val){
+  measureResults.push(`${label}：${val}`);
+  const resEl=document.getElementById('ms-results');
+  if(!resEl)return;
+  resEl.innerHTML=measureResults.map((r,i)=>
+    `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(0,200,255,.07);">
+      <span style="font-size:11px;color:var(--dim)">第${i+1}项</span>
+      <span style="font-size:12px;color:var(--a2);font-weight:700">${r}</span>
+    </div>`
+  ).join('');
+}
+function calcBearing(c1,c2){
+  const dLon=c2.longitude-c1.longitude;
+  const y=Math.sin(dLon)*Math.cos(c2.latitude);
+  const x=Math.cos(c1.latitude)*Math.sin(c2.latitude)-Math.sin(c1.latitude)*Math.cos(c2.latitude)*Math.cos(dLon);
+  return (Math.atan2(y,x)*180/Math.PI+360)%360;
+}
+function handleMeasureClick(pos){
+  measurePts.push(pos);
+  const dot=viewer.entities.add({
+    position:pos,
+    point:{pixelSize:10,color:Cesium.Color.fromCssColorString('#00ffb3'),outlineColor:Cesium.Color.WHITE,outlineWidth:2,disableDepthTestDistance:Number.POSITIVE_INFINITY}
+  });
+  measureEnt.push(dot);
+  if(measureTool==='area'){
+    if(measureAreaLineEnt){viewer.entities.remove(measureAreaLineEnt);measureAreaLineEnt=null;}
+    if(measureAreaPolyEnt){viewer.entities.remove(measureAreaPolyEnt);measureAreaPolyEnt=null;}
+    if(measurePts.length>=2){
+      measureAreaLineEnt=viewer.entities.add({
+        polyline:{positions:[...measurePts],width:2.5,material:new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#00ffb3')),clampToGround:false}
+      });
+    }
+    if(measurePts.length>=3){
+      measureAreaPolyEnt=viewer.entities.add({
+        polygon:{hierarchy:new Cesium.PolygonHierarchy([...measurePts]),material:Cesium.Color.fromCssColorString('#00ffb3').withAlpha(.15)}
+      });
+    }
+    document.getElementById('mh-val').textContent=measurePts.length+' 点';
+    document.getElementById('mh-sub').textContent='面积模式：右键或“完成面测”输出结果';
+    return;
+  }
+
+  if(measurePts.length===1){
+    const ms2=document.getElementById('ms2');
+    if(ms2){document.getElementById('ms1').classList.add('done');ms2.classList.add('cur');}
+    document.getElementById('mh-sub').textContent='点击第 2 个点输出结果';
+    return;
+  }
+  const p1=measurePts[0],p2=measurePts[1];
+  const c1=Cesium.Cartographic.fromCartesian(p1),c2=Cesium.Cartographic.fromCartesian(p2);
+  let result='',label='空间距离';
+  if(measureTool==='space'){
+    const d=Cesium.Cartesian3.distance(p1,p2);
+    result=d>1000?(d/1000).toFixed(3)+' km':d.toFixed(2)+' m';
+    label='空间距离';
+  }else if(measureTool==='ground'){
+    const g=new Cesium.EllipsoidGeodesic(c1,c2);
+    const d=g.surfaceDistance||0;
+    result=d>1000?(d/1000).toFixed(3)+' km':d.toFixed(2)+' m';
+    label='贴地距离';
+  }else if(measureTool==='height'){
+    const d=Math.abs((c2.height||0)-(c1.height||0));
+    result=d.toFixed(2)+' m';
+    label='垂直高度';
+  }else{
+    const b=calcBearing(c1,c2);
+    result=b.toFixed(1)+'°';
+    label='方位角';
+  }
+  const mid=Cesium.Cartesian3.midpoint(p1,p2,new Cesium.Cartesian3());
+  const line=viewer.entities.add({polyline:{positions:[p1,p2],width:3,material:new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#00ffb3')),clampToGround:false}});
+  const lbl=viewer.entities.add({
+    position:mid,
+    label:{text:`${label}: ${result}`,font:'bold 13px "Microsoft YaHei"',fillColor:Cesium.Color.fromCssColorString('#00ffb3'),
+      outlineColor:Cesium.Color.BLACK,outlineWidth:3,style:Cesium.LabelStyle.FILL_AND_OUTLINE,disableDepthTestDistance:Number.POSITIVE_INFINITY,pixelOffset:new Cesium.Cartesian2(0,-20)}
+  });
+  measureEnt.push(line,lbl);
+  document.getElementById('mh-val').textContent=result;
+  document.getElementById('mh-sub').textContent=`${label}计算完成 · 可继续量测`;
+  addMeasureResult(label,result);
+  const ms3=document.getElementById('ms3');
+  if(ms3){document.getElementById('ms2').classList.add('done');ms3.classList.add('cur');}
+  measurePts=[];
+  setTimeout(()=>{
+    const s1=document.getElementById('ms1'),s2=document.getElementById('ms2');
+    if(s1&&s2){s1.classList.remove('done');s1.classList.add('cur');s2.classList.remove('done','cur');}
+  },700);
+}
+function finishMeasureArea(){
+  if(measureTool!=='area')return;
+  if(measurePts.length<3){showToast('面积量测至少需要3个点');return;}
+  const cartos=measurePts.map(p=>Cesium.Cartographic.fromCartesian(p));
+  const area=calcGeoArea(cartos);
+  const text=area>1000000?(area/1000000).toFixed(4)+' km²':(area/10000).toFixed(2)+' ha';
+  if(measureAreaLineEnt){viewer.entities.remove(measureAreaLineEnt);measureAreaLineEnt=null;}
+  if(measureAreaPolyEnt){viewer.entities.remove(measureAreaPolyEnt);measureAreaPolyEnt=null;}
+  const positions=[...measurePts];
+  const poly=viewer.entities.add({
+    polygon:{hierarchy:new Cesium.PolygonHierarchy(positions),material:Cesium.Color.fromCssColorString('#00ffb3').withAlpha(.14)}
+  });
+  const border=viewer.entities.add({
+    polyline:{positions:[...positions,positions[0]],width:2.5,material:new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#00ffb3'))}
+  });
+  const center=positions.reduce((acc,p)=>Cesium.Cartesian3.add(acc,p,acc),new Cesium.Cartesian3());
+  Cesium.Cartesian3.divideByScalar(center,positions.length,center);
+  const lbl=viewer.entities.add({
+    position:center,
+    label:{text:`面积: ${text}`,font:'bold 13px "Microsoft YaHei"',fillColor:Cesium.Color.fromCssColorString('#00ffb3'),
+      outlineColor:Cesium.Color.BLACK,outlineWidth:3,style:Cesium.LabelStyle.FILL_AND_OUTLINE,disableDepthTestDistance:Number.POSITIVE_INFINITY}
+  });
+  measureEnt.push(poly,border,lbl);
+  addMeasureResult('面积',text);
+  document.getElementById('mh-val').textContent=text;
+  document.getElementById('mh-sub').textContent='面积计算完成 · 可继续新面测';
+  measurePts=[];
 }
 
 if(cesiumReady){
   viewer.screenSpaceEventHandler.setInputAction(e=>{
+  // 日照选点
+  if(currentMode==='sun'&&sunPickEnabled){
+    const ray=viewer.camera.getPickRay(e.position);
+    const pos=viewer.scene.globe.pick(ray,viewer.scene);
+    if(pos){
+      sunPickPoint=pos;
+      if(sunPickEnt){viewer.entities.remove(sunPickEnt);sunPickEnt=null;}
+      sunPickEnt=viewer.entities.add({
+        position:pos,
+        point:{pixelSize:12,color:Cesium.Color.fromCssColorString('#ffd166'),outlineColor:Cesium.Color.WHITE,outlineWidth:2,disableDepthTestDistance:Number.POSITIVE_INFINITY},
+      });
+      const carto=Cesium.Cartographic.fromCartesian(pos);
+      showSunResult(carto);
+      document.getElementById('ss2').classList.add('done');
+      document.getElementById('ss3').classList.add('cur');
+      document.getElementById('sun-pick-hint').textContent='✅ 已完成点选，可修改日期后重新分析';
+    }
+    return;
+  }
   // 围栏模式
   if(fenceOn){
     const ray=viewer.camera.getPickRay(e.position);
@@ -1660,93 +2123,19 @@ if(cesiumReady){
   const ray2=viewer.camera.getPickRay(e.position);
   const pos=viewer.scene.globe.pick(ray2,viewer.scene);
   if(!pos)return;
-  measurePts.push(pos);
-
-  const dot=viewer.entities.add({
-    position:pos,
-    point:{pixelSize:12,color:Cesium.Color.fromCssColorString('#00ffb3'),
-      outlineColor:Cesium.Color.WHITE,outlineWidth:2,
-      disableDepthTestDistance:Number.POSITIVE_INFINITY},
-    label:{
-      text:measurePts.length===1?'起':'终',
-      font:'bold 12px "Microsoft YaHei"',
-      fillColor:Cesium.Color.fromCssColorString('#00ffb3'),
-      outlineColor:Cesium.Color.BLACK,outlineWidth:2,
-      style:Cesium.LabelStyle.FILL_AND_OUTLINE,
-      disableDepthTestDistance:Number.POSITIVE_INFINITY,
-      pixelOffset:new Cesium.Cartesian2(0,-22),
-    }
-  });
-  measureEnt.push(dot);
-
-  if(measurePts.length===1){
-    const ms2=document.getElementById('ms2');
-    if(ms2){document.getElementById('ms1').classList.add('done');ms2.classList.add('cur');}
-    document.getElementById('mh-sub').textContent='在地图上点击第 2 个点（终点）';
-  }
-
-  if(measurePts.length===2){
-    const dist=Cesium.Cartesian3.distance(measurePts[0],measurePts[1]);
-    const mid=Cesium.Cartesian3.midpoint(measurePts[0],measurePts[1],new Cesium.Cartesian3());
-    const distStr=dist>1000?(dist/1000).toFixed(3)+' km':dist.toFixed(1)+' m';
-
-    const line=viewer.entities.add({
-      polyline:{positions:[...measurePts],width:3,
-        material:new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#00ffb3')),
-        clampToGround:false}
-    });
-    const lbl=viewer.entities.add({
-      position:mid,
-      label:{text:distStr,font:'bold 14px "Microsoft YaHei"',
-        fillColor:Cesium.Color.fromCssColorString('#00ffb3'),
-        outlineColor:Cesium.Color.BLACK,outlineWidth:3,
-        style:Cesium.LabelStyle.FILL_AND_OUTLINE,
-        disableDepthTestDistance:Number.POSITIVE_INFINITY,
-        pixelOffset:new Cesium.Cartesian2(0,-22),
-      }
-    });
-    measureEnt.push(line,lbl);
-
-    document.getElementById('mh-val').textContent=distStr;
-    document.getElementById('mh-sub').textContent=
-      `约合 ${(dist/1000).toFixed(2)} 公里 · 继续点击可量测新线段`;
-
-    const ms3=document.getElementById('ms3');
-    if(ms3){document.getElementById('ms2').classList.add('done');ms3.classList.add('cur');}
-
-    measureResults.push(distStr);
-    const resEl=document.getElementById('ms-results');
-    if(resEl){
-      resEl.innerHTML=measureResults.map((r,i)=>
-        `<div style="display:flex;justify-content:space-between;padding:5px 0;
-          border-bottom:1px solid rgba(0,200,255,.07);">
-          <span style="font-size:11px;color:var(--dim)">第${i+1}段</span>
-          <span style="font-size:12px;color:var(--a2);font-weight:700">${r}</span>
-        </div>`
-      ).join('')+
-      `<div style="display:flex;justify-content:space-between;padding:5px 0;
-        border-top:1px solid var(--border);margin-top:4px;">
-        <span style="font-size:11px;color:var(--accent)">合计段数</span>
-        <span style="font-size:12px;color:var(--accent);font-weight:700">${measureResults.length}段</span>
-      </div>`;
-    }
-    measurePts=[];
-    // 重置步骤
-    setTimeout(()=>{
-      const s1=document.getElementById('ms1'),s2=document.getElementById('ms2');
-      if(s1&&s2){
-        s1.classList.remove('done');s1.classList.add('cur');
-        s2.classList.remove('done','cur');
-      }
-    },800);
-  }
+  handleMeasureClick(pos);
   },Cesium.ScreenSpaceEventType.LEFT_CLICK);
+  viewer.screenSpaceEventHandler.setInputAction(()=>{
+    if(measureOn&&measureTool==='area')finishMeasureArea();
+  },Cesium.ScreenSpaceEventType.RIGHT_CLICK);
 }
 
 function clearMeasure(){
   if(!ensureCesium())return;
   measureEnt.forEach(e=>viewer.entities.remove(e));
   measureEnt=[];measurePts=[];measureResults=[];
+  if(measureAreaLineEnt){viewer.entities.remove(measureAreaLineEnt);measureAreaLineEnt=null;}
+  if(measureAreaPolyEnt){viewer.entities.remove(measureAreaPolyEnt);measureAreaPolyEnt=null;}
   document.getElementById('mh-val').textContent='等待点击...';
   document.getElementById('mh-sub').textContent='在地图上点击第 1 个点（起点）';
   renderMeasureDrawer();
@@ -1773,6 +2162,14 @@ function renderFenceDrawer(){
     <div id="fence-result" style="display:none;">
       <div class="res-grid col3" id="fence-res-grid"></div>
     </div>
+    <button class="run-btn" onclick="saveCurrentFence()" style="margin-top:10px;border-color:var(--gold);color:var(--gold);background:rgba(255,204,68,.08);">
+      💾 保存当前围栏
+    </button>
+    <div class="hint" style="margin-top:8px;">历史围栏（本地保存）</div>
+    <div id="fence-history" class="fence-list"></div>
+    <button class="run-btn" onclick="clearSavedFences()" style="margin-top:8px;border-color:var(--red);color:var(--red);background:rgba(255,61,90,.08);">
+      清空历史围栏
+    </button>
     <div style="display:flex;gap:8px;margin-top:10px;">
       <button class="run-btn" onclick="closeFence()" style="flex:1;border-color:var(--a2);color:var(--a2);background:rgba(0,255,179,.08);">
         ✅ 完成围栏
@@ -1781,6 +2178,7 @@ function renderFenceDrawer(){
         🗑 清除重绘
       </button>
     </div>`;
+  renderSavedFenceList();
 }
 
 // 球面多边形面积计算（Shoelace on sphere）
@@ -1799,6 +2197,130 @@ function calcGeoArea(cartoArr){
   }
   return Math.abs(area/2)*R*R;
 }
+function calcFencePerimeter(cartoArr){
+  if(cartoArr.length<2)return 0;
+  let sum=0;
+  for(let i=0;i<cartoArr.length;i++){
+    const j=(i+1)%cartoArr.length;
+    const geod=new Cesium.EllipsoidGeodesic(cartoArr[i],cartoArr[j]);
+    sum+=geod.surfaceDistance||0;
+  }
+  return sum;
+}
+function pointInRing(lon,lat,ring){
+  let inside=false;
+  for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+    const xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];
+    const inter=((yi>lat)!==(yj>lat))&&(lon<(xj-xi)*(lat-yi)/(yj-yi+1e-12)+xi);
+    if(inter)inside=!inside;
+  }
+  return inside;
+}
+function getFenceCoveredCount(cartoArr){
+  const ring=cartoArr.map(c=>[Cesium.Math.toDegrees(c.longitude),Cesium.Math.toDegrees(c.latitude)]);
+  let n=0;
+  COUNTIES.forEach(c=>{
+    if(pointInRing(c.lon,c.lat,ring))n++;
+  });
+  return n;
+}
+function saveFenceStorage(){
+  try{localStorage.setItem(FENCE_STORAGE_KEY,JSON.stringify(savedFences));}catch(ex){}
+}
+function loadSavedFences(){
+  try{
+    const raw=localStorage.getItem(FENCE_STORAGE_KEY);
+    const arr=raw?JSON.parse(raw):[];
+    savedFences=Array.isArray(arr)?arr:[];
+  }catch(ex){savedFences=[];}
+}
+function renderSavedFenceEntities(){
+  if(!cesiumReady)return;
+  savedFenceEnt.forEach(e=>viewer.entities.remove(e));
+  savedFenceEnt=[];
+  savedFences.forEach(f=>{
+    if(!f.points||f.points.length<3)return;
+    const deg=[];
+    f.points.forEach(p=>{deg.push(p[0],p[1]);});
+    const poly=viewer.entities.add({
+      polygon:{
+        hierarchy:new Cesium.PolygonHierarchy(Cesium.Cartesian3.fromDegreesArray(deg)),
+        material:Cesium.Color.fromCssColorString('#7b61ff').withAlpha(.08),
+        outline:false,
+      }
+    });
+    const line=viewer.entities.add({
+      polyline:{
+        positions:[...Cesium.Cartesian3.fromDegreesArray(deg),Cesium.Cartesian3.fromDegrees(f.points[0][0],f.points[0][1])],
+        width:2,material:new Cesium.ColorMaterialProperty(Cesium.Color.fromCssColorString('#a78fff').withAlpha(.6))
+      }
+    });
+    savedFenceEnt.push(poly,line);
+  });
+}
+function renderSavedFenceList(){
+  const box=document.getElementById('fence-history');
+  if(!box)return;
+  if(!savedFences.length){
+    box.innerHTML='<div class="hint warn">暂无历史围栏</div>';
+    return;
+  }
+  box.innerHTML=savedFences.map(f=>`
+    <div class="fence-item">
+      <div class="fence-item-top">
+        <div class="fence-item-name">${f.name}</div>
+        <div class="fence-item-btns">
+          <button class="mini-btn" onclick="focusSavedFence('${f.id}')">定位</button>
+          <button class="mini-btn" onclick="removeSavedFence('${f.id}')">删除</button>
+        </div>
+      </div>
+      <div class="fence-item-sub">面积 ${(f.areaM2/10000).toFixed(2)} ha · 周长 ${(f.perimeterM/1000).toFixed(2)} km · 覆盖 ${f.coveredCount} 县区</div>
+    </div>
+  `).join('');
+}
+function saveCurrentFence(){
+  if(fenceCartoPts.length<3){showToast('至少3个点才能保存围栏');return;}
+  const areaM2=calcGeoArea(fenceCartoPts);
+  const perimeterM=calcFencePerimeter(fenceCartoPts);
+  const coveredCount=getFenceCoveredCount(fenceCartoPts);
+  const name=window.prompt('请输入围栏名称','围栏'+new Date().toLocaleString('zh-CN',{hour12:false}).replace(/\//g,'-'))||'未命名围栏';
+  const points=fenceCartoPts.map(c=>[+Cesium.Math.toDegrees(c.longitude).toFixed(6),+Cesium.Math.toDegrees(c.latitude).toFixed(6)]);
+  savedFences.unshift({
+    id:'f'+Date.now(),
+    name,
+    createdAt:new Date().toISOString(),
+    points,
+    areaM2:+areaM2.toFixed(2),
+    perimeterM:+perimeterM.toFixed(2),
+    coveredCount
+  });
+  saveFenceStorage();
+  renderSavedFenceEntities();
+  renderSavedFenceList();
+  showToast('围栏已保存到本地');
+}
+function focusSavedFence(id){
+  if(!ensureCesium())return;
+  const f=savedFences.find(v=>v.id===id);
+  if(!f||!f.points||f.points.length<3)return;
+  const ps=f.points.map(p=>Cesium.Cartesian3.fromDegrees(p[0],p[1],100));
+  const sphere=Cesium.BoundingSphere.fromPoints(ps);
+  viewer.camera.flyToBoundingSphere(sphere,{duration:1.6,offset:new Cesium.HeadingPitchRange(0,Cesium.Math.toRadians(-45),Math.max(18000,sphere.radius*2.4))});
+}
+function removeSavedFence(id){
+  savedFences=savedFences.filter(v=>v.id!==id);
+  saveFenceStorage();
+  renderSavedFenceEntities();
+  renderSavedFenceList();
+}
+function clearSavedFences(){
+  if(!savedFences.length)return;
+  savedFences=[];
+  saveFenceStorage();
+  renderSavedFenceEntities();
+  renderSavedFenceList();
+  showToast('历史围栏已清空');
+}
 
 function updateFenceHUD(){
   const n=fenceCartoPts.length;
@@ -1812,6 +2334,8 @@ function updateFenceHUD(){
     return;
   }
   const m2=calcGeoArea(fenceCartoPts);
+  const perimeter=calcFencePerimeter(fenceCartoPts);
+  const coveredCount=getFenceCoveredCount(fenceCartoPts);
   const ha=(m2/10000).toFixed(2);
   const mu=(m2/666.67).toFixed(1);
   const km2=(m2/1000000).toFixed(4);
@@ -1819,7 +2343,8 @@ function updateFenceHUD(){
     m2>1000000?km2+' km²':ha+' 公顷';
   document.getElementById('fence-ha').textContent=ha+' 公顷';
   document.getElementById('fence-mu').textContent=mu+' 亩';
-  document.getElementById('fence-area-sub').textContent=`${n}个顶点围合 · 实时计算`;
+  document.getElementById('fence-area-sub').textContent=
+    `${n}个顶点围合 · 周长 ${(perimeter/1000).toFixed(2)} km · 覆盖 ${coveredCount} 县区`;
 
   // 更新结果区
   const fr=document.getElementById('fence-result');
@@ -1832,7 +2357,11 @@ function updateFenceHUD(){
       <div class="ri"><div class="rv" style="font-size:18px;">${mu}</div><div class="rl">亩</div>
         <div class="rbar" style="background:linear-gradient(90deg,#ffcc44,#ff9f1c)"></div></div>
       <div class="ri"><div class="rv" style="font-size:18px;">${km2}</div><div class="rl">km²</div>
-        <div class="rbar"></div></div>`;
+        <div class="rbar"></div></div>
+      <div class="ri"><div class="rv" style="font-size:18px;">${(perimeter/1000).toFixed(2)}</div><div class="rl">周长 km</div>
+        <div class="rbar" style="background:linear-gradient(90deg,#00c8ff,#35d3ff)"></div></div>
+      <div class="ri"><div class="rv" style="font-size:18px;">${coveredCount}</div><div class="rl">覆盖县区数</div>
+        <div class="rbar" style="background:linear-gradient(90deg,#00e87a,#06d6a0)"></div></div>`;
     // 步骤推进
     const f2=document.getElementById('fen2'),f3=document.getElementById('fen3');
     if(f2&&f3){f2.classList.add('done');f3.classList.add('cur');}
@@ -1940,50 +2469,142 @@ setInterval(()=>{
 },1000);
 
 // ── 图表 ─────────────────────────────────────────────
+function buildCityChartPayload(){
+  return {
+    titles:['📈 近5年土地面积变化（万亩）','📊 各县区耕地面积（万亩）','🥧 地类构成'],
+    land:{
+      labels:['2019','2020','2021','2022','2023'],
+      datasets:[
+        {label:'耕地',data:[312,308,305,301,298],borderColor:'#00e87a',backgroundColor:'rgba(0,232,122,.07)'},
+        {label:'林地',data:[1245,1258,1267,1279,1290],borderColor:'#00c8ff',backgroundColor:'rgba(0,200,255,.05)'},
+        {label:'建设用地',data:[48,52,57,63,68],borderColor:'#ff9f1c',backgroundColor:'rgba(255,159,28,.05)'},
+      ]
+    },
+    farm:{
+      labels:['武都','文县','宕昌','成县','康县','西和','礼县','徽县','两当'],
+      data:[42.3,18.7,22.1,19.5,15.2,28.4,38.6,20.3,6.8],
+      colors:COUNTIES.map(c=>c.color)
+    },
+    pie:{labels:['林地47%','耕地18%','草地15%','建设5%','其他15%'],data:[47,18,15,5,15]}
+  };
+}
+function buildCountyChartPayload(i){
+  const c=COUNTIES[i];
+  const years=['2019','2020','2021','2022','2023'];
+  const base=Number(c.farm)||10;
+  const f1=years.map((_,k)=>+(base*(1.08-k*0.022+(i+1)*0.005)).toFixed(2));
+  const f2=years.map((_,k)=>+(base*2.6*(1.01+k*0.012-i*0.002)).toFixed(2));
+  const f3=years.map((_,k)=>+(base*0.42*(0.95+k*0.05+i*0.004)).toFixed(2));
+  const farmNow=f1[4],forestNow=f2[4],buildNow=f3[4],grassNow=+(base*0.92+i*0.31).toFixed(2),otherNow=+(base*0.54+i*0.16).toFixed(2);
+  const sum=farmNow+forestNow+buildNow+grassNow+otherNow;
+  const pie=[farmNow,forestNow,grassNow,buildNow,otherNow].map(v=>+(v*100/sum).toFixed(1));
+  return {
+    titles:[`📈 ${c.name}近5年用地趋势（演示值）`,`📊 ${c.name}当前地类规模（万亩）`,`🥧 ${c.name}地类占比`],
+    land:{
+      labels:years,
+      datasets:[
+        {label:'耕地',data:f1,borderColor:'#00e87a',backgroundColor:'rgba(0,232,122,.07)'},
+        {label:'林地',data:f2,borderColor:'#00c8ff',backgroundColor:'rgba(0,200,255,.05)'},
+        {label:'建设用地',data:f3,borderColor:'#ff9f1c',backgroundColor:'rgba(255,159,28,.05)'},
+      ]
+    },
+    farm:{
+      labels:['耕地','林地','草地','建设','其他'],
+      data:[farmNow,forestNow,grassNow,buildNow,otherNow],
+      colors:['#00e87a','#00c8ff','#ffd166','#ff9f1c','#c77dff']
+    },
+    pie:{
+      labels:[`耕地${pie[0]}%`,`林地${pie[1]}%`,`草地${pie[2]}%`,`建设${pie[3]}%`,`其他${pie[4]}%`],
+      data:pie
+    }
+  };
+}
+function updateChartTitles(titles){
+  const els=document.querySelectorAll('#charts-bar .cc-title');
+  titles.forEach((v,i)=>{if(els[i])els[i].textContent=v;});
+}
+function updateChartModeUI(){
+  const c=document.getElementById('chart-mode-city');
+  const k=document.getElementById('chart-mode-county');
+  if(c)c.classList.toggle('on',chartMode==='city');
+  if(k)k.classList.toggle('on',chartMode==='county');
+}
+function setChartMode(mode){
+  chartMode=mode==='county'?'county':'city';
+  try{localStorage.setItem(CHART_MODE_KEY,chartMode);}catch(ex){}
+  if(chartMode==='city')renderSystemStatus(null);
+  else if(selectedCountyIndex!==null)renderSystemStatus(selectedCountyIndex);
+  updateChartModeUI();
+}
+function ensureChartModeUI(){
+  const bar=document.getElementById('charts-bar');
+  if(!bar||document.getElementById('chart-mode'))return;
+  const div=document.createElement('div');
+  div.id='chart-mode';
+  div.className='chart-mode';
+  div.innerHTML=`
+    <button id="chart-mode-city" class="mini-btn">全市</button>
+    <button id="chart-mode-county" class="mini-btn">县区</button>`;
+  bar.appendChild(div);
+  document.getElementById('chart-mode-city').onclick=()=>{setChartMode('city');updateCharts();};
+  document.getElementById('chart-mode-county').onclick=()=>{
+    if(selectedCountyIndex===null)selectedCountyIndex=0;
+    setChartMode('county');updateCharts();
+  };
+  updateChartModeUI();
+}
+function updateCharts(){
+  if(!chartLand||!chartFarm||!chartPie)return;
+  const payload=(chartMode==='county'&&selectedCountyIndex!==null)?buildCountyChartPayload(selectedCountyIndex):buildCityChartPayload();
+  updateChartTitles(payload.titles);
+  chartLand.data.labels=payload.land.labels;
+  chartLand.data.datasets=payload.land.datasets.map(d=>({
+    label:d.label,data:d.data,borderColor:d.borderColor,backgroundColor:d.backgroundColor,
+    tension:.4,fill:true,pointRadius:3,pointHoverRadius:5
+  }));
+  chartLand.update();
+  chartFarm.data.labels=payload.farm.labels;
+  chartFarm.data.datasets=[{
+    label:'面积(万亩)',data:payload.farm.data,
+    backgroundColor:payload.farm.colors.map(c=>c+'77'),borderColor:payload.farm.colors,borderWidth:1,borderRadius:3,
+  }];
+  chartFarm.update();
+  chartPie.data.labels=payload.pie.labels;
+  chartPie.data.datasets=[{
+    data:payload.pie.data,
+    backgroundColor:['#00c8ff88','#00e87a88','#ffd16688','#ff9f1c88','#c77dff88'],
+    borderColor:['#00c8ff','#00e87a','#ffd166','#ff9f1c','#c77dff'],borderWidth:1,
+  }];
+  chartPie.update();
+  updateChartModeUI();
+}
 if(window.Chart){
   const co={
     responsive:true,maintainAspectRatio:false,
     plugins:{legend:{labels:{color:'rgba(140,200,230,.6)',font:{size:9},boxWidth:10}}},
     scales:{
-      x:{ticks:{color:'rgba(140,200,230,.5)',font:{size:9}},
-         grid:{color:'rgba(0,200,255,.06)'},border:{color:'transparent'}},
-      y:{ticks:{color:'rgba(140,200,230,.5)',font:{size:9}},
-         grid:{color:'rgba(0,200,255,.06)'},border:{color:'transparent'}},
-    },animation:{duration:1500,easing:'easeInOutQuart'},
+      x:{ticks:{color:'rgba(140,200,230,.5)',font:{size:9}},grid:{color:'rgba(0,200,255,.06)'},border:{color:'transparent'}},
+      y:{ticks:{color:'rgba(140,200,230,.5)',font:{size:9}},grid:{color:'rgba(0,200,255,.06)'},border:{color:'transparent'}},
+    },animation:{duration:1200,easing:'easeInOutQuart'},
   };
-  new Chart(document.getElementById('chart-land'),{type:'line',
-    data:{labels:['2019','2020','2021','2022','2023'],datasets:[
-      {label:'耕地',data:[312,308,305,301,298],borderColor:'#00e87a',
-       backgroundColor:'rgba(0,232,122,.07)',tension:.4,fill:true,pointRadius:3,pointHoverRadius:5},
-      {label:'林地',data:[1245,1258,1267,1279,1290],borderColor:'#00c8ff',
-       backgroundColor:'rgba(0,200,255,.05)',tension:.4,fill:true,pointRadius:3,pointHoverRadius:5},
-      {label:'建设用地',data:[48,52,57,63,68],borderColor:'#ff9f1c',
-       backgroundColor:'rgba(255,159,28,.05)',tension:.4,fill:true,pointRadius:3,pointHoverRadius:5},
-    ]},
+  chartLand=new Chart(document.getElementById('chart-land'),{
+    type:'line',data:{labels:[],datasets:[]},
     options:{...co,plugins:{...co.plugins,legend:{...co.plugins.legend,position:'bottom'}}},
   });
-  new Chart(document.getElementById('chart-farm'),{type:'bar',
-    data:{labels:['武都','文县','宕昌','成县','康县','西和','礼县','徽县','两当'],
-      datasets:[{label:'耕地(万亩)',
-        data:[42.3,18.7,22.1,19.5,15.2,28.4,38.6,20.3,6.8],
-        backgroundColor:COUNTIES.map(c=>c.color+'77'),
-        borderColor:COUNTIES.map(c=>c.color),
-        borderWidth:1,borderRadius:3,
-      }]},
+  chartFarm=new Chart(document.getElementById('chart-farm'),{
+    type:'bar',data:{labels:[],datasets:[]},
     options:{...co,plugins:{legend:{display:false}}},
   });
-  new Chart(document.getElementById('chart-pie'),{type:'doughnut',
-    data:{labels:['林地47%','耕地18%','草地15%','建设5%','其他15%'],
-      datasets:[{data:[47,18,15,5,15],
-        backgroundColor:['#00c8ff88','#00e87a88','#ffd16688','#ff9f1c88','#c77dff88'],
-        borderColor:['#00c8ff','#00e87a','#ffd166','#ff9f1c','#c77dff'],borderWidth:1,
-      }]},
+  chartPie=new Chart(document.getElementById('chart-pie'),{
+    type:'doughnut',data:{labels:[],datasets:[]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'right',labels:{color:'rgba(140,200,230,.6)',
-        font:{size:8},boxWidth:8,padding:4}}},
-      animation:{duration:1500},
+      plugins:{legend:{position:'right',labels:{color:'rgba(140,200,230,.6)',font:{size:8},boxWidth:8,padding:4}}},
+      animation:{duration:1200},
     },
   });
+  ensureChartModeUI();
+  if(chartMode==='county'&&selectedCountyIndex===null)selectedCountyIndex=0;
+  updateCharts();
 }else{
   showToast('图表库加载失败，请检查网络或CDN');
 }
